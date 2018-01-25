@@ -48,8 +48,8 @@ def update_file():
 
     app_data['wdg_dict'] = init_wdg_dict()
     app_data['wdg_dict']['data_input'].value = file_src
-    app_data['wdg_dict']['fastq_input'] = TextInput(title="FASTQ sequence ID:", value="")
-    app_data['wdg_dict']['channel_select'] = TextInput(title="Channel:", value="")
+    app_data['wdg_dict']['fastq_input'] = TextInput(title="FASTQ sequence ID:", value="", css_classes=[])
+    app_data['wdg_dict']['channel_select'] = TextInput(title="Channel:", value="", css_classes=[])
     app_data['wdg_dict']['x_axis_range'] = RangeSlider(
         start=0,
         end=app_data['app_vars']['len_ds'],
@@ -83,8 +83,10 @@ def go_to_fastq(attr, old, new):
         fq_list = fq_list.split(" ")
         read_id = fq_list[0]
         channel_number = fq_list[3].split("=")[1]
+        input_error(app_data['wdg_dict']['fastq_input'], 'remove')
     else:
         # turn box red, not fastq -->
+        input_error(app_data['wdg_dict']['fastq_input'], 'add')
         print("Not FASTQ string!")
         return
 
@@ -192,9 +194,6 @@ def build_widgets():
     wdg['po_y_max'].on_change('value', update)
 
     wdg['label_filter'].on_change('active', update)
-
-    wdg['label_filter'].css_classes.append("item")
-    print(type(wdg['label_filter'].css_classes))
     return wdg
 
 
@@ -277,7 +276,7 @@ def thinning_factor(window_range):
 
 def init_wdg_dict():
     wdg_dict = OrderedDict()
-    wdg_dict['data_input'] = TextInput(title='Data Source:', value=None)
+    wdg_dict['data_input'] = TextInput(title='Data Source:', value="/Users/Alex/projects/bokehApp/bulkvis/data/NA12878_Run6_Sample2_29123.fast5")
     wdg_dict['data_button'] = Button(label="Update source file", button_type="primary")
     wdg_dict['data_button'].on_click(update_file)
     return wdg_dict
@@ -430,6 +429,17 @@ def init_update(attr, old, new):
         app_data['wdg_dict'],
         app_data['app_vars']
     )
+
+
+def input_error(widget, mode):
+    """"""
+    if mode == 'add':
+        widget.css_classes.append('input-error')
+    elif mode == 'remove':
+        if widget.css_classes:
+            del widget.css_classes[-1]
+    else:
+        print("mode not recognised")
 
 
 def update_print(attr, old, new):

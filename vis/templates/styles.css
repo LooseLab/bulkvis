@@ -90,6 +90,6 @@ body {
     background-color: #ed9c28;
     font-style: italic;
 }
-/*.bk-root .bk-bs-btn-success.bk-bs-active ::after{*/
-    /*content: 'off';*/
-/*}*/
+.input-error > .bk-widget-form-input {
+    background-color: red;
+}
