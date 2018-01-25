@@ -2,7 +2,6 @@
 ============
 
 An app written in Python3 using [Bokeh](https://github.com/bokeh/bokeh/) to visualise raw squiggle data from Oxford Nanopore Technologies (ONT) bulkfiles. 
-⬳⟿
 
 Table of contents
 =================
