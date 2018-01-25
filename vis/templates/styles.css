@@ -91,5 +91,5 @@ body {
     font-style: italic;
 }
 .input-error > .bk-widget-form-input {
-    background-color: red;
+    background-color: #d9534f;
 }
