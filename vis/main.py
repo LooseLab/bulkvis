@@ -4,7 +4,7 @@
 @b45a4b09-6f22-40f6-afd9-aa7fca8e89f3 runid=f9291b45b0c66faa77755e51738d193fcfafffc7 read=234 ch=391 start_time=2018-01-18T21:59:40Z
 """
 from collections import OrderedDict
-import ConfigParser
+import configparser
 import math
 
 import h5py
@@ -31,7 +31,6 @@ def update_file():
 
     file_src = app_data['wdg_dict']['data_input'].value
     app_data.clear()
-    # app_data = init_app_dict()
     app_data['app_vars'] = {}
     app_data['wdg_dict'] = OrderedDict()
     app_data['label_dt'] = OrderedDict()
@@ -59,7 +58,6 @@ def update_file():
         title="X range"
     )
 
-    # update fq on change or click?
     app_data['wdg_dict']['fastq_input'].on_change("value", go_to_fastq)
     app_data['wdg_dict']['channel_select'].on_change("value", init_update)
 
@@ -180,9 +178,7 @@ def build_widgets():
     wdg['po_y_max'] = TextInput(title="y max", value=str(Y_MAX), css_classes=['adjust-drop'])
     wdg['po_y_min'] = TextInput(title="y min", value=str(Y_MIN), css_classes=['adjust-drop'])
 
-    # on_change
     wdg['channel_select'].on_change('value', update)
-    # wdg['x_axis_range'].on_change('value', update)
     wdg['update_button'].on_click(update_plot)
     wdg['toggle_x_axis'].on_click(toggle_button)
     wdg['toggle_y_axis'].on_click(toggle_button)
@@ -231,7 +227,6 @@ def create_figure(x_data, y_data, label_df, label_dt, wdg, app_vars):
         toolbar_location="above",
         tools=['xpan', 'xbox_zoom', 'save', 'reset'],
     )
-    # p.add_tools(BoxSelectTool(dimensions="width"))
     p.yaxis.axis_label = "Current (pA)"
     p.yaxis.major_label_orientation = "horizontal"
     p.xaxis.axis_label = "Time (seconds)"
@@ -282,18 +277,15 @@ def thinning_factor(window_range):
 
 def init_wdg_dict():
     wdg_dict = OrderedDict()
-    wdg_dict['data_input'] = TextInput(title='Data Source:', value="/Users/Alex/projects/bokehApp/bulkvis/data/NA12878_Run6_Sample2_29123.fast5")
+    wdg_dict['data_input'] = TextInput(title='Data Source:', value=None)
     wdg_dict['data_button'] = Button(label="Update source file", button_type="primary")
     wdg_dict['data_button'].on_click(update_file)
     return wdg_dict
 
 
 def update(attr, old, new):
-    # app_data['wdg_dict']['slider_start'].value = app_data['wdg_dict']['x_axis_range'].value[0]
-    # app_data['wdg_dict']['slider_duration'].value = app_data['wdg_dict']['x_axis_range'].value[1] - app_data['wdg_dict']['x_axis_range'].value[0]
     app_data['app_vars']['channel_str'] = "Channel_{ch}".format(ch=app_data['wdg_dict']['channel_select'].value)
 
-    # range = app_data['wdg_dict'].get('x_axis_range', (0, 0))
     app_data['x_data'], \
     app_data['y_data'], \
     app_data['label_df'], \
