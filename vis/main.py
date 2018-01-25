@@ -14,7 +14,6 @@ from bokeh.plotting import curdoc, figure
 from bokeh.layouts import row, widgetbox
 from bokeh.models import TextInput, Button, RangeSlider, Toggle, Div, BoxSelectTool, Range1d, Label, Span, CheckboxGroup
 
-
 WDG_WIDTH = 300
 PLOT_WIDTH = 970
 PLOT_HEIGHT = 800
@@ -34,7 +33,7 @@ def update_file():
     app_data['app_vars'] = {}
     app_data['wdg_dict'] = OrderedDict()
     app_data['label_dt'] = OrderedDict()
-    # clear all app_data except file_src
+
     app_data['file_src'] = file_src
     (app_data['bulkfile'],
      app_data['app_vars']['sf'],
@@ -53,7 +52,7 @@ def update_file():
     app_data['wdg_dict']['x_axis_range'] = RangeSlider(
         start=0,
         end=app_data['app_vars']['len_ds'],
-        value=(0,0),
+        value=(0, 0),
         step=1,
         title="X range"
     )
@@ -71,8 +70,6 @@ def open_bulkfile(path):
     sf = int(file["UniqueGlobalKey"]["context_tags"].attrs["sample_frequency"].decode('utf8'))
     # make channel_list
     channel_list = np.arange(1, len(file["Raw"]) + 1, 1).tolist()
-    for i, ch in enumerate(channel_list):
-        channel_list[i] = "Channel_{ch}".format(ch=ch)
     return file, sf, channel_list
 
 
@@ -144,8 +141,9 @@ def build_widgets():
         check_active.append(k)
 
     wdg = app_data['wdg_dict']
-    wdg['channel_select'] = TextInput(title='Channel:', value=app_data['app_vars']['channel_num'])
-    wdg['x_axis_range'] = RangeSlider(start=0, end=app_data['app_vars']['len_ds'], value=(0,0), step=1, title="X range")
+    wdg['channel_select'] = TextInput(title='Channel:', value=app_data['app_vars']['channel_num'], css_classes=[])
+    wdg['x_axis_range'] = RangeSlider(start=0, end=app_data['app_vars']['len_ds'], value=(0, 0), step=1,
+                                      title="X range")
     wdg['update_button'] = Button(label="Update plot", button_type="primary")
     wdg['toggle_x_axis'] = Toggle(
         label="Fixed x-axis",
@@ -182,16 +180,11 @@ def build_widgets():
 
     wdg['channel_select'].on_change('value', update)
     wdg['update_button'].on_click(update_plot)
-    wdg['toggle_x_axis'].on_click(toggle_button)
-    wdg['toggle_y_axis'].on_click(toggle_button)
-    wdg['toggle_annotations'].on_click(toggle_button)
-    wdg['toggle_smoothing'].on_click(toggle_button)
 
-    wdg['po_width'].on_change('value', update)
-    wdg['po_height'].on_change('value', update)
-    wdg['po_x_width'].on_change('value', update)
-    wdg['po_y_min'].on_change('value', update)
-    wdg['po_y_max'].on_change('value', update)
+    for name in toggle_inputs:
+        wdg[name].on_click(toggle_button)
+    for name in int_inputs:
+        wdg[name].on_change('value', is_input_int)
 
     wdg['label_filter'].on_change('active', update)
     return wdg
@@ -276,13 +269,24 @@ def thinning_factor(window_range):
 
 def init_wdg_dict():
     wdg_dict = OrderedDict()
-    wdg_dict['data_input'] = TextInput(title='Data Source:', value="/Users/Alex/projects/bokehApp/bulkvis/data/NA12878_Run6_Sample2_29123.fast5")
+    wdg_dict['data_input'] = TextInput(title='Data Source:',
+                                       value="/Users/Alex/projects/bokehApp/bulkvis/data/NA12878_Run6_Sample2_29123.fast5")
     wdg_dict['data_button'] = Button(label="Update source file", button_type="primary")
     wdg_dict['data_button'].on_click(update_file)
     return wdg_dict
 
 
 def update(attr, old, new):
+    try:
+        channel = int(app_data['wdg_dict']['channel_select'].value)
+        # should also check that 'input-error' is in css_classes
+        if channel in app_data['app_vars']['channel_list']:
+            input_error(app_data['wdg_dict']['channel_select'], 'remove')
+        else:
+            input_error(app_data['wdg_dict']['channel_select'], 'add')
+    except ValueError:
+        input_error(app_data['wdg_dict']['channel_select'], 'add')
+
     app_data['app_vars']['channel_str'] = "Channel_{ch}".format(ch=app_data['wdg_dict']['channel_select'].value)
 
     app_data['x_data'], \
@@ -403,6 +407,15 @@ def get_annotations(file, channel, sf):
 
 
 def init_update(attr, old, new):
+    try:
+        channel = int(app_data['wdg_dict']['channel_select'].value)
+        if channel in app_data['app_vars']['channel_list']:
+            input_error(app_data['wdg_dict']['channel_select'], 'remove')
+        else:
+            input_error(app_data['wdg_dict']['channel_select'], 'add')
+    except ValueError:
+        input_error(app_data['wdg_dict']['channel_select'], 'add')
+
     channel_number = app_data['wdg_dict']['channel_select'].value
     app_data['app_vars']['channel_num'] = channel_number
     app_data['app_vars']['channel_str'] = "Channel_{ch}".format(ch=channel_number)
@@ -431,6 +444,21 @@ def init_update(attr, old, new):
     )
 
 
+def is_input_int(attr, old, new):
+    try:
+        val = int(new)
+        for wdg in int_inputs:
+            if (app_data['wdg_dict'][wdg].value == new) and ('input-error' in app_data['wdg_dict'][wdg].css_classes):
+                input_error(app_data['wdg_dict'][wdg], 'remove')
+    except ValueError:
+        for wdg in int_inputs:
+            if app_data['wdg_dict'][wdg].value == new:
+                input_error(app_data['wdg_dict'][wdg], 'add')
+                return
+
+    update(attr, old, new)
+
+
 def input_error(widget, mode):
     """"""
     if mode == 'add':
@@ -443,37 +471,39 @@ def input_error(widget, mode):
 
 
 def update_print(attr, old, new):
-    print(app_data['wdg_dict']['label_filter'].active)
-    print(app_data['label_mp'])
-    print(app_data['label_df'])
+    # print(self)
+    return
 
 
 app_data = {
-    'file_src': None,               # bulkfile path (string)
-    'bulkfile': None,               # bulkfile object
-    'x_data': None,                 # numpy ndarray time points
-    'y_data': None,                 # numpy ndarray signal data
-    'label_df': None,               # pandas df of signal labels
-    'label_dt': None,               # dict of signal enumeration
-    'label_mp': None,             # dict matching labels to widget filter
-    'app_vars': {                   # dict of variables used in plots and widgets
-        'len_ds': None,                 # length of signal dataset in (seconds or events)
-        'start_time': None,             # squiggle start time in seconds
-        'end_time': None,               # squiggle end time in seconds
-        'start_squiggle': None,         # squiggle start position (events)
-        'end_squiggle': None,           # squiggle end position (events)
-        'channel_str': None,            # 'Channel_NNN' (string)
-        'channel_num': None,            # 'Channel_NNN' (string)
-        'duration': None,               # squiggle duration (seconds)
-        'sf': None,                     # sample frequency (int)
-        'channel_list': None,           # list of all channels -> maybe change to tuple (str, int)
-        'fastq_str': None,              # fastq sequence id (string)
-        'fastq_read_id': None           # fastq read id (string)
+    'file_src': None,  # bulkfile path (string)
+    'bulkfile': None,  # bulkfile object
+    'x_data': None,  # numpy ndarray time points
+    'y_data': None,  # numpy ndarray signal data
+    'label_df': None,  # pandas df of signal labels
+    'label_dt': None,  # dict of signal enumeration
+    'label_mp': None,  # dict matching labels to widget filter
+    'app_vars': {  # dict of variables used in plots and widgets
+        'len_ds': None,  # length of signal dataset in (seconds or events)
+        'start_time': None,  # squiggle start time in seconds
+        'end_time': None,  # squiggle end time in seconds
+        'start_squiggle': None,  # squiggle start position (events)
+        'end_squiggle': None,  # squiggle end position (events)
+        'channel_str': None,  # 'Channel_NNN' (string)
+        'channel_num': None,  # 'Channel_NNN' (string)
+        'duration': None,  # squiggle duration (seconds)
+        'sf': None,  # sample frequency (int)
+        'channel_list': None,  # list of all channels -> maybe change to tuple (str, int)
+        'fastq_str': None,  # fastq sequence id (string)
+        'fastq_read_id': None  # fastq read id (string)
     },
-    'wdg_dict': None,               # dictionary of widgets
-    'controls': None,               # widgets added to widgetbox
-    'pore_plt': None                # the squiggle plot
+    'wdg_dict': None,  # dictionary of widgets
+    'controls': None,  # widgets added to widgetbox
+    'pore_plt': None  # the squiggle plot
 }
+
+int_inputs = ['po_width', 'po_height', 'po_x_width', 'po_y_min', 'po_y_max']
+toggle_inputs = ['toggle_x_axis', 'toggle_y_axis', 'toggle_annotations', 'toggle_smoothing']
 
 app_data['wdg_dict'] = init_wdg_dict()
 app_data['controls'] = widgetbox(list(app_data['wdg_dict'].values()), width=WDG_WIDTH)
