@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head></head>
+        {{ bokeh_css }}
+        <style>
+          {% include 'styles.css' %}
+        </style>
+        <meta charset="utf-8">
+        {{ bokeh_js }}
+    </head>
+    <body>
+        {{ plot_div|indent(8) }}
+        {{ plot_script|indent(8) }}
+        <script src='https://cdnjs.cloudflare.com/ajax/libs/jquery/3.1.0/jquery.min.js'></script>
+        <script>
+        $(document).ready(function() {
+            $('body').on('click', '.adjust-dropdown', function () {
+                $('.adjust-drop').slideToggle();
+{#                $(this).toggleClass('caret-up caret-down');#}
+            });
+            $('body').on('click', '.filter-dropdown', function () {
+                $('.filter-drop').slideToggle();
+{#                $(this).toggleClass('caret-up caret-down');#}
+            });
+        });
+        </script>
+    </body>
+</html>
