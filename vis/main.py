@@ -6,6 +6,7 @@
 from collections import OrderedDict
 import configparser
 import math
+import os
 
 import h5py
 import numpy as np
@@ -14,13 +15,9 @@ from bokeh.plotting import curdoc, figure
 from bokeh.layouts import row, widgetbox
 from bokeh.models import TextInput, Button, RangeSlider, Toggle, Div, BoxSelectTool, Range1d, Label, Span, CheckboxGroup
 
-WDG_WIDTH = 300
-PLOT_WIDTH = 970
-PLOT_HEIGHT = 800
-Y_MIN = 0
-Y_MAX = 2200
-X_WIDTH = 15
-
+config = configparser.ConfigParser()
+config.read(os.path.dirname(os.path.realpath(__file__)) + '/config.ini')
+cfg = config['plot_opts']
 
 def update_file():
     """"""
@@ -60,7 +57,7 @@ def update_file():
     app_data['wdg_dict']['fastq_input'].on_change("value", go_to_fastq)
     app_data['wdg_dict']['channel_select'].on_change("value", init_update)
 
-    layout.children[0] = widgetbox(list(app_data['wdg_dict'].values()), width=WDG_WIDTH)
+    layout.children[0] = widgetbox(list(app_data['wdg_dict'].values()), width=int(cfg['wdg_width']))
 
 
 def open_bulkfile(path):
@@ -119,7 +116,7 @@ def go_to_fastq(attr, old, new):
     )
     app_data['wdg_dict'] = build_widgets()
     app_data['wdg_dict']['x_axis_range'].value = (fq_start_time, fq_end_time)
-    layout.children[0] = widgetbox(list(app_data['wdg_dict'].values()), width=WDG_WIDTH)
+    layout.children[0] = widgetbox(list(app_data['wdg_dict'].values()), width=int(cfg['wdg_width']))
     layout.children[1] = create_figure(
         app_data['x_data'],
         app_data['y_data'],
@@ -172,11 +169,11 @@ def build_widgets():
     wdg['label_options'] = Div(text='Select annotations', css_classes=['filter-dropdown', 'caret-down'])
     wdg['label_filter'] = CheckboxGroup(labels=check_labels, active=check_active, css_classes=['filter-drop'])
     wdg['plot_options'] = Div(text='Plot Adjustments', css_classes=['adjust-dropdown', 'caret-down'])
-    wdg['po_width'] = TextInput(title='Plot Width (px)', value=str(PLOT_WIDTH), css_classes=['adjust-drop'])
-    wdg['po_height'] = TextInput(title='Plot Height (px)', value=str(PLOT_HEIGHT), css_classes=['adjust-drop'])
-    wdg['po_x_width'] = TextInput(title="x width", value=str(X_WIDTH), css_classes=['adjust-drop'])
-    wdg['po_y_max'] = TextInput(title="y max", value=str(Y_MAX), css_classes=['adjust-drop'])
-    wdg['po_y_min'] = TextInput(title="y min", value=str(Y_MIN), css_classes=['adjust-drop'])
+    wdg['po_width'] = TextInput(title='Plot Width (px)', value=str(int(cfg['plot_width'])), css_classes=['adjust-drop'])
+    wdg['po_height'] = TextInput(title='Plot Height (px)', value=str(cfg['plot_height']), css_classes=['adjust-drop'])
+    wdg['po_x_width'] = TextInput(title="x width", value=str(int(cfg['x_width'])), css_classes=['adjust-drop'])
+    wdg['po_y_max'] = TextInput(title="y max", value=str(int(cfg['y_max'])), css_classes=['adjust-drop'])
+    wdg['po_y_min'] = TextInput(title="y min", value=str(int(cfg['y_min'])), css_classes=['adjust-drop'])
 
     wdg['channel_select'].on_change('value', update)
     wdg['update_button'].on_click(update_plot)
@@ -433,7 +430,7 @@ def init_update(attr, old, new):
         app_data['app_vars']['channel_str']
     )
     build_widgets()
-    layout.children[0] = widgetbox(list(app_data['wdg_dict'].values()), width=WDG_WIDTH)
+    layout.children[0] = widgetbox(list(app_data['wdg_dict'].values()), width=int(cfg['wdg_width']))
     layout.children[1] = create_figure(
         app_data['x_data'],
         app_data['y_data'],
@@ -476,37 +473,37 @@ def update_print(attr, old, new):
 
 
 app_data = {
-    'file_src': None,  # bulkfile path (string)
-    'bulkfile': None,  # bulkfile object
-    'x_data': None,  # numpy ndarray time points
-    'y_data': None,  # numpy ndarray signal data
-    'label_df': None,  # pandas df of signal labels
-    'label_dt': None,  # dict of signal enumeration
-    'label_mp': None,  # dict matching labels to widget filter
-    'app_vars': {  # dict of variables used in plots and widgets
-        'len_ds': None,  # length of signal dataset in (seconds or events)
-        'start_time': None,  # squiggle start time in seconds
-        'end_time': None,  # squiggle end time in seconds
-        'start_squiggle': None,  # squiggle start position (events)
-        'end_squiggle': None,  # squiggle end position (events)
-        'channel_str': None,  # 'Channel_NNN' (string)
-        'channel_num': None,  # 'Channel_NNN' (string)
-        'duration': None,  # squiggle duration (seconds)
-        'sf': None,  # sample frequency (int)
-        'channel_list': None,  # list of all channels -> maybe change to tuple (str, int)
-        'fastq_str': None,  # fastq sequence id (string)
-        'fastq_read_id': None  # fastq read id (string)
+    'file_src': None,               # bulkfile path (string)
+    'bulkfile': None,               # bulkfile object
+    'x_data': None,                 # numpy ndarray time points
+    'y_data': None,                 # numpy ndarray signal data
+    'label_df': None,               # pandas df of signal labels
+    'label_dt': None,               # dict of signal enumeration
+    'label_mp': None,               # dict matching labels to widget filter
+    'app_vars': {                   # dict of variables used in plots and widgets
+        'len_ds': None,                 # length of signal dataset in (seconds or events)
+        'start_time': None,             # squiggle start time in seconds
+        'end_time': None,               # squiggle end time in seconds
+        'start_squiggle': None,         # squiggle start position (events)
+        'end_squiggle': None,           # squiggle end position (events)
+        'channel_str': None,            # 'Channel_NNN' (string)
+        'channel_num': None,            # Channel number (int)
+        'duration': None,               # squiggle duration (seconds)
+        'sf': None,                     # sample frequency (int)
+        'channel_list': None,           # list of all channels as int
+        'fastq_str': None,              # fastq sequence id (string)
+        'fastq_read_id': None           # fastq read id (string)
     },
-    'wdg_dict': None,  # dictionary of widgets
-    'controls': None,  # widgets added to widgetbox
-    'pore_plt': None  # the squiggle plot
+    'wdg_dict': None,               # dictionary of widgets
+    'controls': None,               # widgets added to widgetbox
+    'pore_plt': None                # the squiggle plot
 }
 
 int_inputs = ['po_width', 'po_height', 'po_x_width', 'po_y_min', 'po_y_max']
 toggle_inputs = ['toggle_x_axis', 'toggle_y_axis', 'toggle_annotations', 'toggle_smoothing']
 
 app_data['wdg_dict'] = init_wdg_dict()
-app_data['controls'] = widgetbox(list(app_data['wdg_dict'].values()), width=WDG_WIDTH)
+app_data['controls'] = widgetbox(list(app_data['wdg_dict'].values()), width=int(cfg['wdg_width']))
 p = figure(
     toolbar_location=None
 )
