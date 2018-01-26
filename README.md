@@ -18,17 +18,34 @@ Installation
 ============
 
 ```bash
-$ git clone ...
-$ MAKE VENV
+# Make a python3 virtual environment
+$ mkdir ~/envs
+$ cd ~/envs
+$ python3 -m venv ~/envs/bulkvis
+
+# Activate virtual environment
+$ source ~/envs/bulkvis/bin/activate
+
+# Clone the repo to your installation/projects directory
+$ git clone https://github.com/LooseLab/bulkvis.git
+
+# Install dependencies via pip
+$ pip install -r requirements.txt
 ```
 
 Configuration
 =============
+bulkvis uses some user defined parameter to set default plot options. These can change depending on your preferences.
+To set the parameters:
 
-```bash
-$ ACTIVATE VENV
-$ pip install -r requirements.txt
-$ EDIT CONFIG FILE IF YOU WANT/NEED
+```INI
+[plot_opts]
+wdg_width = 300
+plot_width = 970
+plot_height = 800
+y_min = 0
+y_max = 2200
+x_width = 15
 ```
 
 Launch the app
@@ -41,7 +58,7 @@ $ bokeh serve --show vis
 Tutorial
 ========
 
-COMING SOON
+:wrench: Coming soon 🤫
 
 Support
 =======
