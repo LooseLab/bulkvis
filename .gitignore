@@ -2,3 +2,4 @@
 *.fast5
 .idea
 *.gcx
+cfg.py
