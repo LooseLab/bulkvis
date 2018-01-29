@@ -13,11 +13,12 @@ import numpy as np
 import pandas as pd
 from bokeh.plotting import curdoc, figure
 from bokeh.layouts import row, widgetbox
-from bokeh.models import TextInput, Button, RangeSlider, Toggle, Div, BoxSelectTool, Range1d, Label, Span, CheckboxGroup
+from bokeh.models import TextInput, Button, Toggle, Div, Range1d, Label, Span, CheckboxGroup
 
 config = configparser.ConfigParser()
 config.read(os.path.dirname(os.path.realpath(__file__)) + '/config.ini')
 cfg = config['plot_opts']
+
 
 def update_file():
     """"""
@@ -30,8 +31,9 @@ def update_file():
     app_data['app_vars'] = {}
     app_data['wdg_dict'] = OrderedDict()
     app_data['label_dt'] = OrderedDict()
-
     app_data['file_src'] = file_src
+    app_data['INIT'] = True
+
     (app_data['bulkfile'],
      app_data['app_vars']['sf'],
      app_data['app_vars']['channel_list']) = open_bulkfile(app_data['file_src'])
@@ -46,16 +48,12 @@ def update_file():
     app_data['wdg_dict']['data_input'].value = file_src
     app_data['wdg_dict']['fastq_input'] = TextInput(title="FASTQ sequence ID:", value="", css_classes=[])
     app_data['wdg_dict']['channel_select'] = TextInput(title="Channel:", value="", css_classes=[])
-    app_data['wdg_dict']['x_axis_range'] = RangeSlider(
-        start=0,
-        end=app_data['app_vars']['len_ds'],
-        value=(0, 0),
-        step=1,
-        title="X range"
-    )
+
+    app_data['wdg_dict']['squiggle_start'] = TextInput(title='Start time (seconds):', value=str(0), css_classes=[])
+    app_data['wdg_dict']['squiggle_duration'] = TextInput(title='Duration (seconds):', value=str(0), css_classes=[])
 
     app_data['wdg_dict']['fastq_input'].on_change("value", go_to_fastq)
-    app_data['wdg_dict']['channel_select'].on_change("value", init_update)
+    app_data['wdg_dict']['channel_select'].on_change("value", update)
 
     layout.children[0] = widgetbox(list(app_data['wdg_dict'].values()), width=int(cfg['wdg_width']))
 
@@ -70,63 +68,6 @@ def open_bulkfile(path):
     return file, sf, channel_list
 
 
-def go_to_fastq(attr, old, new):
-    fq = app_data['wdg_dict']['fastq_input'].value
-    if fq[0] == "@":
-        fq_list = fq[1:]
-        fq_list = fq_list.split(" ")
-        read_id = fq_list[0]
-        channel_number = fq_list[3].split("=")[1]
-        input_error(app_data['wdg_dict']['fastq_input'], 'remove')
-    else:
-        # turn box red, not fastq -->
-        input_error(app_data['wdg_dict']['fastq_input'], 'add')
-        print("Not FASTQ string!")
-        return
-
-    app_data['app_vars']['channel_num'] = channel_number
-    app_data['app_vars']['channel_str'] = "Channel_{ch}".format(ch=channel_number)
-    int_data_path = app_data['bulkfile']["IntermediateData"][app_data['app_vars']['channel_str']]["Reads"]
-    int_data_labels = {
-        'read_id': int_data_path["read_id"],
-        'read_start': int_data_path["read_start"],
-    }
-    df = pd.DataFrame(data=int_data_labels)
-    df.read_start = df.read_start / app_data['app_vars']['sf']
-    df.read_id = df.read_id.str.decode('utf8')
-    df = df.where(df.read_id == read_id)
-    df = df.dropna()
-    # !!! check that multiple rows are still here
-    fq_start_time = math.floor(df.iloc[0, :].read_start)
-    fq_end_time = math.ceil(df.iloc[-1, :].read_start)
-
-    # build widgets
-    (app_data['x_data'],
-     app_data['y_data'],
-     app_data['label_df'],
-     app_data['label_dt'],
-     app_data['app_vars']['end_time'],
-     app_data['app_vars']['start_squiggle'],
-     app_data['app_vars']['end_squiggle'],
-     app_data['app_vars']['len_ds']) = update_data(
-        (fq_start_time, fq_end_time),
-        app_data['app_vars']['sf'],
-        app_data['bulkfile'],
-        app_data['app_vars']['channel_str']
-    )
-    app_data['wdg_dict'] = build_widgets()
-    app_data['wdg_dict']['x_axis_range'].value = (fq_start_time, fq_end_time)
-    layout.children[0] = widgetbox(list(app_data['wdg_dict'].values()), width=int(cfg['wdg_width']))
-    layout.children[1] = create_figure(
-        app_data['x_data'],
-        app_data['y_data'],
-        app_data['label_df'],
-        app_data['label_dt'],
-        app_data['wdg_dict'],
-        app_data['app_vars']
-    )
-
-
 def build_widgets():
     """"""
     check_labels = []
@@ -138,10 +79,9 @@ def build_widgets():
         check_active.append(k)
 
     wdg = app_data['wdg_dict']
-    wdg['channel_select'] = TextInput(title='Channel:', value=app_data['app_vars']['channel_num'], css_classes=[])
-    wdg['x_axis_range'] = RangeSlider(start=0, end=app_data['app_vars']['len_ds'], value=(0, 0), step=1,
-                                      title="X range")
-    wdg['update_button'] = Button(label="Update plot", button_type="primary")
+    wdg['channel_select'] = TextInput(title='Channel:', value=str(app_data['app_vars']['channel_num']), css_classes=[])
+    wdg['squiggle_start'] = TextInput(title='Start time (seconds):', value=str(0), css_classes=[])
+    wdg['squiggle_duration'] = TextInput(title='Duration (seconds):', value=str(0), css_classes=[])
     wdg['toggle_x_axis'] = Toggle(
         label="Fixed x-axis",
         button_type="danger",
@@ -160,36 +100,42 @@ def build_widgets():
         css_classes=['toggle_button_g_r'],
         active=True
     )
-    wdg['toggle_smoothing'] = Toggle(
-        label="Toggle smoothing",
-        button_type="danger",
-        css_classes=['toggle_button_o_r'],
-        active=True
-    )
+
     wdg['label_options'] = Div(text='Select annotations', css_classes=['filter-dropdown', 'caret-down'])
     wdg['label_filter'] = CheckboxGroup(labels=check_labels, active=check_active, css_classes=['filter-drop'])
+
     wdg['plot_options'] = Div(text='Plot Adjustments', css_classes=['adjust-dropdown', 'caret-down'])
     wdg['po_width'] = TextInput(title='Plot Width (px)', value=str(int(cfg['plot_width'])), css_classes=['adjust-drop'])
     wdg['po_height'] = TextInput(title='Plot Height (px)', value=str(cfg['plot_height']), css_classes=['adjust-drop'])
     wdg['po_x_width'] = TextInput(title="x width", value=str(int(cfg['x_width'])), css_classes=['adjust-drop'])
     wdg['po_y_max'] = TextInput(title="y max", value=str(int(cfg['y_max'])), css_classes=['adjust-drop'])
     wdg['po_y_min'] = TextInput(title="y min", value=str(int(cfg['y_min'])), css_classes=['adjust-drop'])
+    wdg['label_height'] = TextInput(
+        title="Annotation height (y-axis)",
+        value=str(int(cfg['label_height'])),
+        css_classes=['adjust-drop']
+    )
+    wdg['toggle_smoothing'] = Toggle(
+        label="Toggle smoothing",
+        button_type="danger",
+        css_classes=['toggle_button_o_r', 'adjust-drop'],
+        active=True
+    )
 
     wdg['channel_select'].on_change('value', update)
-    wdg['update_button'].on_click(update_plot)
+    wdg['label_filter'].on_change('active', update)
 
     for name in toggle_inputs:
         wdg[name].on_click(toggle_button)
     for name in int_inputs:
         wdg[name].on_change('value', is_input_int)
 
-    wdg['label_filter'].on_change('active', update)
     return wdg
 
 
 def create_figure(x_data, y_data, label_df, label_dt, wdg, app_vars):
     if wdg["toggle_smoothing"].active:
-        w_range = wdg['x_axis_range'].value[1] - wdg['x_axis_range'].value[0]
+        w_range = int(wdg['squiggle_duration'].value)
         thin_factor = thinning_factor(w_range)
     else:
         thin_factor = 4
@@ -208,8 +154,8 @@ def create_figure(x_data, y_data, label_df, label_dt, wdg, app_vars):
     p = figure(
         plot_height=int(wdg['po_height'].value),
         plot_width=int(wdg['po_width'].value),
-        title="Channel_{ch} Raw Output at {sf} events per second: {tf}".format(
-            ch=wdg['channel_select'].value,
+        title="{ch} Raw Output at {sf} events per second: {tf}".format(
+            ch=app_vars['channel_str'],
             sf=app_vars['sf'],
             tf=thin_factor
         ),
@@ -224,12 +170,15 @@ def create_figure(x_data, y_data, label_df, label_dt, wdg, app_vars):
         p.y_range = Range1d(int(wdg['po_y_min'].value), int(wdg['po_y_max'].value))
 
     if wdg['toggle_x_axis'].active:
-        p.x_range = Range1d(wdg['x_axis_range'].value[0], wdg['x_axis_range'].value[0] + int(wdg['po_x_width'].value))
+        p.x_range = Range1d(
+            int(int(wdg['squiggle_start'].value)),
+            int(wdg['squiggle_start'].value) + int(wdg['po_x_width'].value)
+        )
 
     p.xaxis.major_label_orientation = math.radians(45)
 
     if wdg['toggle_annotations'].active:
-        label_df = label_df[(label_df['read_start'] >= wdg['x_axis_range'].value[0]) &
+        label_df = label_df[(label_df['read_start'] >= int(wdg['squiggle_start'].value)) &
                             (label_df['read_start'] <= app_vars['end_time'])]
 
         for index, label in label_df.iterrows():
@@ -258,90 +207,20 @@ def create_figure(x_data, y_data, label_df, label_dt, wdg, app_vars):
 
 
 def thinning_factor(window_range):
-    divend = 1000000 * math.e
-    divisor = 10000 - window_range
-    factor = (divend / divisor) - 270
+    divisor = math.e ** 2.5
+    factor = window_range / divisor
     return math.ceil(factor)
 
 
 def init_wdg_dict():
     wdg_dict = OrderedDict()
-    wdg_dict['data_input'] = TextInput(title='Data Source:',
-                                       value="/Users/Alex/projects/bokehApp/bulkvis/data/NA12878_Run6_Sample2_29123.fast5")
+    wdg_dict['data_input'] = TextInput(
+        title='Data Source:',
+        value="/Users/Alex/projects/bokehApp/bulkvis/data/NA12878_Run6_Sample2_29123.fast5"
+    )
     wdg_dict['data_button'] = Button(label="Update source file", button_type="primary")
     wdg_dict['data_button'].on_click(update_file)
     return wdg_dict
-
-
-def update(attr, old, new):
-    try:
-        channel = int(app_data['wdg_dict']['channel_select'].value)
-        # should also check that 'input-error' is in css_classes
-        if channel in app_data['app_vars']['channel_list']:
-            input_error(app_data['wdg_dict']['channel_select'], 'remove')
-        else:
-            input_error(app_data['wdg_dict']['channel_select'], 'add')
-    except ValueError:
-        input_error(app_data['wdg_dict']['channel_select'], 'add')
-
-    app_data['app_vars']['channel_str'] = "Channel_{ch}".format(ch=app_data['wdg_dict']['channel_select'].value)
-
-    app_data['x_data'], \
-    app_data['y_data'], \
-    app_data['label_df'], \
-    app_data['label_dt'], \
-    app_data['app_vars']['end_time'], \
-    app_data['app_vars']['start_squiggle'], \
-    app_data['app_vars']['end_squiggle'], \
-    app_data['app_vars']['len_ds'] = update_data(
-        app_data['wdg_dict']['x_axis_range'].value,
-        app_data['app_vars']['sf'],
-        app_data['bulkfile'],
-        app_data['app_vars']['channel_str']
-    )
-    layout.children[1] = create_figure(
-        app_data['x_data'],
-        app_data['y_data'],
-        app_data['label_df'],
-        app_data['label_dt'],
-        app_data['wdg_dict'],
-        app_data['app_vars']
-    )
-
-
-def update_plot():
-    app_data['x_data'], \
-    app_data['y_data'], \
-    app_data['label_df'], \
-    app_data['label_dt'], \
-    app_data['app_vars']['end_time'], \
-    app_data['app_vars']['start_squiggle'], \
-    app_data['app_vars']['end_squiggle'], \
-    app_data['app_vars']['len_ds'] = update_data(
-        app_data['wdg_dict']['x_axis_range'].value,
-        app_data['app_vars']['sf'],
-        app_data['bulkfile'],
-        app_data['app_vars']['channel_str']
-    )
-    layout.children[1] = create_figure(
-        app_data['x_data'],
-        app_data['y_data'],
-        app_data['label_df'],
-        app_data['label_dt'],
-        app_data['wdg_dict'],
-        app_data['app_vars']
-    )
-
-
-def toggle_button(state):
-    layout.children[1] = create_figure(
-        app_data['x_data'],
-        app_data['y_data'],
-        app_data['label_df'],
-        app_data['label_dt'],
-        app_data['wdg_dict'],
-        app_data['app_vars']
-    )
 
 
 def update_data(start_time, sf, bulkfile, channel):
@@ -403,19 +282,38 @@ def get_annotations(file, channel, sf):
     return labels_df, int_data_dtypes
 
 
-def init_update(attr, old, new):
+def is_input_int(attr, old, new):
+    try:
+        int(new)
+        for wdg in int_inputs:
+            if (app_data['wdg_dict'][wdg].value == new) and ('input-error' in app_data['wdg_dict'][wdg].css_classes):
+                input_error(app_data['wdg_dict'][wdg], 'remove')
+    except ValueError:
+        for wdg in int_inputs:
+            if app_data['wdg_dict'][wdg].value == new:
+                input_error(app_data['wdg_dict'][wdg], 'add')
+                return
+
+    new = new.lstrip('0')
+    update(attr, old, new)
+
+
+def update(attr, old, new):
     try:
         channel = int(app_data['wdg_dict']['channel_select'].value)
         if channel in app_data['app_vars']['channel_list']:
             input_error(app_data['wdg_dict']['channel_select'], 'remove')
         else:
             input_error(app_data['wdg_dict']['channel_select'], 'add')
+            return
     except ValueError:
         input_error(app_data['wdg_dict']['channel_select'], 'add')
+        return
 
-    channel_number = app_data['wdg_dict']['channel_select'].value
-    app_data['app_vars']['channel_num'] = channel_number
-    app_data['app_vars']['channel_str'] = "Channel_{ch}".format(ch=channel_number)
+    app_data['app_vars']['channel_num'] = channel
+    app_data['app_vars']['channel_str'] = "Channel_{ch}".format(ch=channel)
+    end_time = int(app_data['wdg_dict']['squiggle_start'].value) + int(app_data['wdg_dict']['squiggle_duration'].value)
+    # app_data['wdg_dict'][''].value =
     (app_data['x_data'],
      app_data['y_data'],
      app_data['label_df'],
@@ -424,12 +322,72 @@ def init_update(attr, old, new):
      app_data['app_vars']['start_squiggle'],
      app_data['app_vars']['end_squiggle'],
      app_data['app_vars']['len_ds']) = update_data(
-        app_data['wdg_dict']['x_axis_range'].value,
+        (int(app_data['wdg_dict']['squiggle_start'].value), end_time),
+         app_data['app_vars']['sf'],
+         app_data['bulkfile'],
+         app_data['app_vars']['channel_str']
+    )
+    if app_data['INIT']:
+        build_widgets()
+        layout.children[0] = widgetbox(list(app_data['wdg_dict'].values()), width=int(cfg['wdg_width']))
+        app_data['INIT'] = False
+
+    layout.children[1] = create_figure(
+        app_data['x_data'],
+        app_data['y_data'],
+        app_data['label_df'],
+        app_data['label_dt'],
+        app_data['wdg_dict'],
+        app_data['app_vars']
+    )
+
+
+def go_to_fastq(attr, old, new):
+    fq = app_data['wdg_dict']['fastq_input'].value
+    if fq[0] == "@":
+        fq_list = fq[1:]
+        fq_list = fq_list.split(" ")
+        read_id = fq_list[0]
+        channel_number = fq_list[3].split("=")[1]
+        input_error(app_data['wdg_dict']['fastq_input'], 'remove')
+    else:
+        input_error(app_data['wdg_dict']['fastq_input'], 'add')
+        print("Not FASTQ string!")
+        return
+
+    app_data['app_vars']['channel_num'] = channel_number
+    app_data['app_vars']['channel_str'] = "Channel_{ch}".format(ch=channel_number)
+    int_data_path = app_data['bulkfile']["IntermediateData"][app_data['app_vars']['channel_str']]["Reads"]
+    int_data_labels = {
+        'read_id': int_data_path["read_id"],
+        'read_start': int_data_path["read_start"],
+    }
+    df = pd.DataFrame(data=int_data_labels)
+    df.read_start = df.read_start / app_data['app_vars']['sf']
+    df.read_id = df.read_id.str.decode('utf8')
+    df = df.where(df.read_id == read_id)
+    df = df.dropna()
+    # !!! check that multiple rows are still here
+    fq_start_time = math.floor(df.iloc[0, :].read_start)
+    fq_end_time = math.ceil(df.iloc[-1, :].read_start)
+
+    # build widgets
+    (app_data['x_data'],
+     app_data['y_data'],
+     app_data['label_df'],
+     app_data['label_dt'],
+     app_data['app_vars']['end_time'],
+     app_data['app_vars']['start_squiggle'],
+     app_data['app_vars']['end_squiggle'],
+     app_data['app_vars']['len_ds']) = update_data(
+        (fq_start_time, fq_end_time),
         app_data['app_vars']['sf'],
         app_data['bulkfile'],
         app_data['app_vars']['channel_str']
     )
-    build_widgets()
+    app_data['wdg_dict'] = build_widgets()
+    app_data['wdg_dict']['squiggle_start'].value = str(fq_start_time)
+    app_data['wdg_dict']['squiggle_duration'].value = str(fq_end_time - fq_start_time)
     layout.children[0] = widgetbox(list(app_data['wdg_dict'].values()), width=int(cfg['wdg_width']))
     layout.children[1] = create_figure(
         app_data['x_data'],
@@ -441,19 +399,15 @@ def init_update(attr, old, new):
     )
 
 
-def is_input_int(attr, old, new):
-    try:
-        val = int(new)
-        for wdg in int_inputs:
-            if (app_data['wdg_dict'][wdg].value == new) and ('input-error' in app_data['wdg_dict'][wdg].css_classes):
-                input_error(app_data['wdg_dict'][wdg], 'remove')
-    except ValueError:
-        for wdg in int_inputs:
-            if app_data['wdg_dict'][wdg].value == new:
-                input_error(app_data['wdg_dict'][wdg], 'add')
-                return
-
-    update(attr, old, new)
+def toggle_button(state):
+    layout.children[1] = create_figure(
+        app_data['x_data'],
+        app_data['y_data'],
+        app_data['label_df'],
+        app_data['label_dt'],
+        app_data['wdg_dict'],
+        app_data['app_vars']
+    )
 
 
 def input_error(widget, mode):
@@ -465,11 +419,6 @@ def input_error(widget, mode):
             del widget.css_classes[-1]
     else:
         print("mode not recognised")
-
-
-def update_print(attr, old, new):
-    # print(self)
-    return
 
 
 app_data = {
@@ -496,10 +445,12 @@ app_data = {
     },
     'wdg_dict': None,               # dictionary of widgets
     'controls': None,               # widgets added to widgetbox
-    'pore_plt': None                # the squiggle plot
+    'pore_plt': None,               # the squiggle plot
+    'INIT': True                    # Initial plot with bulkfile (bool)
 }
 
-int_inputs = ['po_width', 'po_height', 'po_x_width', 'po_y_min', 'po_y_max']
+int_inputs = ['squiggle_start', 'squiggle_duration', 'po_width', 'po_height', 'po_x_width', 'po_y_min', 'po_y_max',
+              'label_height']
 toggle_inputs = ['toggle_x_axis', 'toggle_y_axis', 'toggle_annotations', 'toggle_smoothing']
 
 app_data['wdg_dict'] = init_wdg_dict()
@@ -519,4 +470,4 @@ layout = row(
 )
 
 curdoc().add_root(layout)
-curdoc().title = "Alex's APP"
+curdoc().title = "bulkvis"
