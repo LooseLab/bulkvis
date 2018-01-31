@@ -13,7 +13,7 @@ import numpy as np
 import pandas as pd
 from bokeh.plotting import curdoc, figure
 from bokeh.layouts import row, widgetbox
-from bokeh.models import TextInput, Button, Toggle, Div, Range1d, Label, Span, CheckboxGroup
+from bokeh.models import TextInput, Button, Toggle, Div, Range1d, Label, Span, CheckboxGroup, Dropdown, PreText
 
 config = configparser.ConfigParser()
 config.read(os.path.dirname(os.path.realpath(__file__)) + '/config.ini')
@@ -71,17 +71,25 @@ def open_bulkfile(path):
 def build_widgets():
     """"""
     check_labels = []
+    jump_list = []
     check_active = []
     app_data['label_mp'] = {}
     for k, v in enumerate(app_data['label_dt'].items()):
         app_data['label_mp'][v[0]] = k
         check_labels.append(v[1])
         check_active.append(k)
+        jump_list.append((v[1], str(v[0])))
+
 
     wdg = app_data['wdg_dict']
     wdg['channel_select'] = TextInput(title='Channel:', value=str(app_data['app_vars']['channel_num']), css_classes=[])
     wdg['squiggle_start'] = TextInput(title='Start time (seconds):', value=str(0), css_classes=[])
     wdg['squiggle_duration'] = TextInput(title='Duration (seconds):', value=str(0), css_classes=[])
+
+    wdg['jump_next'] = Dropdown(label="Jump to next", button_type="primary", menu=jump_list)
+    wdg['jump_next_err'] = PreText(text="")
+    wdg['jump_prev'] = Dropdown(label="Jump to previous", button_type="primary", menu=jump_list)
+
     wdg['toggle_x_axis'] = Toggle(
         label="Fixed x-axis",
         button_type="danger",
@@ -105,14 +113,14 @@ def build_widgets():
     wdg['label_filter'] = CheckboxGroup(labels=check_labels, active=check_active, css_classes=['filter-drop'])
 
     wdg['plot_options'] = Div(text='Plot Adjustments', css_classes=['adjust-dropdown', 'caret-down'])
-    wdg['po_width'] = TextInput(title='Plot Width (px)', value=str(int(cfg['plot_width'])), css_classes=['adjust-drop'])
-    wdg['po_height'] = TextInput(title='Plot Height (px)', value=str(cfg['plot_height']), css_classes=['adjust-drop'])
-    wdg['po_x_width'] = TextInput(title="x width", value=str(int(cfg['x_width'])), css_classes=['adjust-drop'])
-    wdg['po_y_max'] = TextInput(title="y max", value=str(int(cfg['y_max'])), css_classes=['adjust-drop'])
-    wdg['po_y_min'] = TextInput(title="y min", value=str(int(cfg['y_min'])), css_classes=['adjust-drop'])
+    wdg['po_width'] = TextInput(title='Plot Width (px)', value=cfg['plot_width'], css_classes=['adjust-drop'])
+    wdg['po_height'] = TextInput(title='Plot Height (px)', value=cfg['plot_height'], css_classes=['adjust-drop'])
+    wdg['po_x_width'] = TextInput(title="x width", value=cfg['x_width'], css_classes=['adjust-drop'])
+    wdg['po_y_max'] = TextInput(title="y max", value=cfg['y_max'], css_classes=['adjust-drop'])
+    wdg['po_y_min'] = TextInput(title="y min", value=cfg['y_min'], css_classes=['adjust-drop'])
     wdg['label_height'] = TextInput(
         title="Annotation height (y-axis)",
-        value=str(int(cfg['label_height'])),
+        value=cfg['label_height'],
         css_classes=['adjust-drop']
     )
     wdg['toggle_smoothing'] = Toggle(
@@ -124,6 +132,8 @@ def build_widgets():
 
     wdg['channel_select'].on_change('value', update)
     wdg['label_filter'].on_change('active', update)
+    wdg['jump_next'].on_click(next_update)
+    wdg['jump_prev'].on_click(prev_update)
 
     for name in toggle_inputs:
         wdg[name].on_click(toggle_button)
@@ -178,10 +188,10 @@ def create_figure(x_data, y_data, label_df, label_dt, wdg, app_vars):
     p.xaxis.major_label_orientation = math.radians(45)
 
     if wdg['toggle_annotations'].active:
-        label_df = label_df[(label_df['read_start'] >= int(wdg['squiggle_start'].value)) &
-                            (label_df['read_start'] <= app_vars['end_time'])]
+        slim_label_df = label_df[(label_df['read_start'] >= int(wdg['squiggle_start'].value)) &
+                                 (label_df['read_start'] <= app_vars['end_time'])]
 
-        for index, label in label_df.iterrows():
+        for index, label in slim_label_df.iterrows():
             if app_data['label_mp'][label.modal_classification] in wdg['label_filter'].active:
                 event_line = Span(
                     location=label.read_start,
@@ -193,7 +203,7 @@ def create_figure(x_data, y_data, label_df, label_dt, wdg, app_vars):
                 p.add_layout(event_line)
                 labels = Label(
                     x=label.read_start,
-                    y=800,
+                    y=int(wdg['label_height'].value),
                     text=str(label_dt[label.modal_classification]),
                     level='glyph',
                     x_offset=0,
@@ -202,7 +212,6 @@ def create_figure(x_data, y_data, label_df, label_dt, wdg, app_vars):
                     angle=-300
                 )
                 p.add_layout(labels)
-
     return p
 
 
@@ -419,6 +428,38 @@ def input_error(widget, mode):
             del widget.css_classes[-1]
     else:
         print("mode not recognised")
+
+
+def next_update(value):
+    value = int(value)
+    jump_start = app_data['label_df'][(app_data['label_df']['read_start'] > int(app_data['wdg_dict']['squiggle_start'].value) + 1) &
+                                      (app_data['label_df']['modal_classification'] == value)]
+    app_data['wdg_dict']['squiggle_start'].value = str(math.floor(jump_start['read_start'].iloc[0]))
+    layout.children[1] = create_figure(
+        app_data['x_data'],
+        app_data['y_data'],
+        app_data['label_df'],
+        app_data['label_dt'],
+        app_data['wdg_dict'],
+        app_data['app_vars']
+    )
+    app_data['wdg_dict']['jump_next'].value = ""
+
+
+def prev_update(value):
+    value = int(value)
+    jump_start = app_data['label_df'][(app_data['label_df']['read_start'] < int(app_data['wdg_dict']['squiggle_start'].value)) &
+                                      (app_data['label_df']['modal_classification'] == value)]
+    app_data['wdg_dict']['squiggle_start'].value = str(math.floor(jump_start['read_start'].iloc[-1]))
+    layout.children[1] = create_figure(
+        app_data['x_data'],
+        app_data['y_data'],
+        app_data['label_df'],
+        app_data['label_dt'],
+        app_data['wdg_dict'],
+        app_data['app_vars']
+    )
+    app_data['wdg_dict']['jump_prev'].value = ""
 
 
 app_data = {
