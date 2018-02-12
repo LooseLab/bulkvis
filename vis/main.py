@@ -9,23 +9,19 @@ import numpy as np
 import pandas as pd
 from bokeh.plotting import curdoc, figure
 from bokeh.layouts import row, widgetbox
-from bokeh.models import TextInput, Button, Toggle, Div, Range1d, Label, Span, CheckboxGroup, Dropdown, PreText
+from bokeh.models import TextInput, Button, Toggle, Div, Range1d, Label, Span, CheckboxGroup, Dropdown, PreText, Select
 
 config = configparser.ConfigParser()
 config.read(os.path.dirname(os.path.realpath(__file__)) + '/config.ini')
 cfg_po = config['plot_opts']
+cfg_dr = config['data']
 cfg_lo = config['labels']
 
 
 def init_wdg_dict():
     wdg_dict = OrderedDict()
-    wdg_dict['data_input'] = TextInput(
-        title='Data Source:',
-        value="/Users/Alex/projects/bokehApp/bulkvis/data/NA12878_Run6_Sample2_29123.fast5",
-        placeholder="Path to your bulkfile"
-    )
-    wdg_dict['data_button'] = Button(label="Update source file", button_type="primary")
-    wdg_dict['data_button'].on_click(update_file)
+    wdg_dict['file_list'] = Select(title="Select file:", options=app_data['app_vars']['files'])
+    wdg_dict['file_list'].on_change('value', change_file)
     return wdg_dict
 
 
@@ -35,14 +31,17 @@ def update_file():
         app_data['bulkfile'].flush()
         app_data['bulkfile'].close()
 
-    file_src = app_data['wdg_dict']['data_input'].value
+    file_src = app_data['wdg_dict']['file_list'].value
+    file_wdg = app_data['wdg_dict']['file_list']
+    file_list = app_data['app_vars']['files']
     # Clear old bulkfile data and build new data structures
     app_data.clear()
     app_data['app_vars'] = {}
     app_data['wdg_dict'] = OrderedDict()
     app_data['label_dt'] = OrderedDict()
-    app_data['file_src'] = file_src
+    app_data['file_src'] = os.path.join(cfg_dr['dir'], file_src)
     app_data['INIT'] = True
+    app_data['app_vars']['files'] = file_list
 
     (app_data['bulkfile'],
      app_data['app_vars']['sf'],
@@ -58,7 +57,7 @@ def update_file():
 
     # add fastq and position inputs
     app_data['wdg_dict'] = init_wdg_dict()
-    app_data['wdg_dict']['data_input'].value = file_src
+    app_data['wdg_dict']['file_list'] = file_wdg
     app_data['wdg_dict']['position'] = TextInput(
         title="Position:",
         value="",
@@ -113,6 +112,7 @@ def parse_position(attr, old, new):
             end_time = math.ceil(df.iloc[-1, :].read_start)
         app_data['wdg_dict']['position'].value = "{ch}:{start}-{end}".format(ch=channel_num, start=start_time, end=end_time)
     elif re.match(r'^[0-9]{1,3}:[0-9]{1,9}-[0-9]{1,9}', new):
+        # https://regex101.com/r/zkN1j2/1
         coords = new.split(":")
         times = coords[1].split("-")
         channel_num = coords[0]
@@ -165,9 +165,7 @@ def update_data(bulkfile, app_vars):
     state_label_df, state_label_dtypes = get_annotations(path, fields)
     state_label_df.analysis_raw_index = state_label_df.analysis_raw_index / app_vars['sf']
     state_label_df = state_label_df.rename(columns={'analysis_raw_index': 'read_start', 'summary_state': 'modal_classification'})
-    print(len(app_data['label_df']))
     app_data['label_df'] = app_data['label_df'].append(state_label_df, ignore_index=True)
-    print(len(app_data['label_df']))
     app_data['label_df'].sort_values(by='read_start', ascending=True, inplace=True)
     app_data['label_dt'].update(state_label_dtypes)
 
@@ -435,7 +433,7 @@ def prev_update(value):
             ]
         try:
             app_data['app_vars']['start_time'] = int(math.floor(jump_start['read_start'].iloc[-1]))
-            print(int(math.floor(jump_start['read_start'].iloc[-1])))
+            # print(int(math.floor(jump_start['read_start'].iloc[-1])))
         except IndexError:
             app_data['wdg_dict']['duration'].text += "\n{ev} event not found".format(ev=app_data['label_dt'][value])
             return
@@ -458,6 +456,10 @@ def prev_update(value):
         app_data['wdg_dict']['jump_prev'].value = "reset"
     else:
         return
+
+
+def change_file(attr, old, new):
+    update_file()
 
 
 app_data = {
@@ -488,6 +490,11 @@ app_data = {
 
 int_inputs = ['po_width', 'po_height', 'po_x_width', 'po_y_min', 'po_y_max', 'label_height']
 toggle_inputs = ['toggle_x_axis', 'toggle_y_axis', 'toggle_annotations', 'toggle_smoothing']
+
+app_data['app_vars']['files'] = []
+for file in os.listdir(cfg_dr['dir']):
+    if file.endswith('.fast5'):
+        app_data['app_vars']['files'].append((file, file))
 
 app_data['wdg_dict'] = init_wdg_dict()
 app_data['controls'] = widgetbox(list(app_data['wdg_dict'].values()), width=int(cfg_po['wdg_width']))
