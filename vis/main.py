@@ -9,7 +9,7 @@ import numpy as np
 import pandas as pd
 from bokeh.plotting import curdoc, figure
 from bokeh.layouts import row, widgetbox
-from bokeh.models import TextInput, Button, Toggle, Div, Range1d, Label, Span, CheckboxGroup, Dropdown, PreText, Select
+from bokeh.models import TextInput, Toggle, Div, Range1d, Label, Span, CheckboxGroup, Dropdown, PreText, Select
 
 config = configparser.ConfigParser()
 config.read(os.path.dirname(os.path.realpath(__file__)) + '/config.ini')
@@ -110,7 +110,11 @@ def parse_position(attr, old, new):
             # !!! check that multiple rows are still here
             start_time = math.floor(df.iloc[0, :].read_start)
             end_time = math.ceil(df.iloc[-1, :].read_start)
-        app_data['wdg_dict']['position'].value = "{ch}:{start}-{end}".format(ch=channel_num, start=start_time, end=end_time)
+        app_data['wdg_dict']['position'].value = "{ch}:{start}-{end}".format(
+            ch=channel_num,
+            start=start_time,
+            end=end_time
+        )
     elif re.match(r'^[0-9]{1,3}:[0-9]{1,9}-[0-9]{1,9}', new):
         # https://regex101.com/r/zkN1j2/1
         coords = new.split(":")
@@ -164,7 +168,9 @@ def update_data(bulkfile, app_vars):
     fields = ['analysis_raw_index', 'summary_state']
     state_label_df, state_label_dtypes = get_annotations(path, fields)
     state_label_df.analysis_raw_index = state_label_df.analysis_raw_index / app_vars['sf']
-    state_label_df = state_label_df.rename(columns={'analysis_raw_index': 'read_start', 'summary_state': 'modal_classification'})
+    state_label_df = state_label_df.rename(
+        columns={'analysis_raw_index': 'read_start', 'summary_state': 'modal_classification'}
+    )
     app_data['label_df'] = app_data['label_df'].append(state_label_df, ignore_index=True)
     app_data['label_df'].sort_values(by='read_start', ascending=True, inplace=True)
     app_data['label_dt'].update(state_label_dtypes)
@@ -310,7 +316,7 @@ def create_figure(x_data, y_data, app_data, wdg, app_vars):
         tools=['xpan', 'xbox_zoom', 'save', 'reset'],
     )
 
-    p.toolbar.logo=None
+    p.toolbar.logo = None
     p.yaxis.axis_label = "Current (pA)"
     p.yaxis.major_label_orientation = "horizontal"
     p.xaxis.axis_label = "Time (seconds)"
