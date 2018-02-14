@@ -1,23 +1,29 @@
-"""
-/Users/Alex/projects/bokehApp/bulkvis/data/NA12878_Run6_Sample2_29123.fast5
-
-@b45a4b09-6f22-40f6-afd9-aa7fca8e89f3 runid=f9291b45b0c66faa77755e51738d193fcfafffc7 read=234 ch=391 start_time=2018-01-18T21:59:40Z
-"""
 from collections import OrderedDict
 import configparser
 import math
 import os
+import re
 
 import h5py
 import numpy as np
 import pandas as pd
 from bokeh.plotting import curdoc, figure
 from bokeh.layouts import row, widgetbox
-from bokeh.models import TextInput, Button, RangeSlider, Toggle, Div, BoxSelectTool, Range1d, Label, Span, CheckboxGroup
+from bokeh.models import TextInput, Toggle, Div, Range1d, Label, Span, CheckboxGroup, Dropdown, PreText, Select
 
 config = configparser.ConfigParser()
 config.read(os.path.dirname(os.path.realpath(__file__)) + '/config.ini')
-cfg = config['plot_opts']
+cfg_po = config['plot_opts']
+cfg_dr = config['data']
+cfg_lo = config['labels']
+
+
+def init_wdg_dict():
+    wdg_dict = OrderedDict()
+    wdg_dict['file_list'] = Select(title="Select file:", options=app_data['app_vars']['files'])
+    wdg_dict['file_list'].on_change('value', change_file)
+    return wdg_dict
+
 
 def update_file():
     """"""
@@ -25,13 +31,18 @@ def update_file():
         app_data['bulkfile'].flush()
         app_data['bulkfile'].close()
 
-    file_src = app_data['wdg_dict']['data_input'].value
+    file_src = app_data['wdg_dict']['file_list'].value
+    file_wdg = app_data['wdg_dict']['file_list']
+    file_list = app_data['app_vars']['files']
+    # Clear old bulkfile data and build new data structures
     app_data.clear()
     app_data['app_vars'] = {}
     app_data['wdg_dict'] = OrderedDict()
     app_data['label_dt'] = OrderedDict()
+    app_data['file_src'] = os.path.join(cfg_dr['dir'], file_src)
+    app_data['INIT'] = True
+    app_data['app_vars']['files'] = file_list
 
-    app_data['file_src'] = file_src
     (app_data['bulkfile'],
      app_data['app_vars']['sf'],
      app_data['app_vars']['channel_list']) = open_bulkfile(app_data['file_src'])
@@ -40,108 +51,190 @@ def update_file():
     for i, member in enumerate(raw_path):
         if i == 0:
             signal_ds = raw_path[member]["Signal"][()]
-            app_data['app_vars']['len_ds'] = math.ceil(len(signal_ds) / app_data['app_vars']['sf'])
+            # get dataset length in seconds
+            # app_data['app_vars']['len_ds'] = math.ceil(len(signal_ds) / app_data['app_vars']['sf'])
+            app_data['app_vars']['len_ds'] = len(signal_ds) / app_data['app_vars']['sf']
 
+    # add fastq and position inputs
     app_data['wdg_dict'] = init_wdg_dict()
-    app_data['wdg_dict']['data_input'].value = file_src
-    app_data['wdg_dict']['fastq_input'] = TextInput(title="FASTQ sequence ID:", value="", css_classes=[])
-    app_data['wdg_dict']['channel_select'] = TextInput(title="Channel:", value="", css_classes=[])
-    app_data['wdg_dict']['x_axis_range'] = RangeSlider(
-        start=0,
-        end=app_data['app_vars']['len_ds'],
-        value=(0, 0),
-        step=1,
-        title="X range"
+    app_data['wdg_dict']['file_list'] = file_wdg
+    app_data['wdg_dict']['position'] = TextInput(
+        title="Position:",
+        value="",
+        placeholder="Enter position or FASTQ ID",
+        css_classes=[]
     )
 
-    app_data['wdg_dict']['fastq_input'].on_change("value", go_to_fastq)
-    app_data['wdg_dict']['channel_select'].on_change("value", init_update)
+    app_data['wdg_dict']['position'].on_change("value", parse_position)
 
-    layout.children[0] = widgetbox(list(app_data['wdg_dict'].values()), width=int(cfg['wdg_width']))
+    layout.children[0] = widgetbox(list(app_data['wdg_dict'].values()), width=int(cfg_po['wdg_width']))
 
 
 def open_bulkfile(path):
     """"""
     # !!! add in check to see if this is a ONT bulkfile
+    # Open bulkfile in read-only mode
     file = h5py.File(path, "r")
+    # Get sample frequency, how many data points are collected each second
     sf = int(file["UniqueGlobalKey"]["context_tags"].attrs["sample_frequency"].decode('utf8'))
     # make channel_list
     channel_list = np.arange(1, len(file["Raw"]) + 1, 1).tolist()
     return file, sf, channel_list
 
 
-def go_to_fastq(attr, old, new):
-    fq = app_data['wdg_dict']['fastq_input'].value
-    if fq[0] == "@":
-        fq_list = fq[1:]
-        fq_list = fq_list.split(" ")
-        read_id = fq_list[0]
-        channel_number = fq_list[3].split("=")[1]
-        input_error(app_data['wdg_dict']['fastq_input'], 'remove')
+# noinspection PyUnboundLocalVariable
+def parse_position(attr, old, new):
+    if new[0] == "@":
+        fq = new[1:]
+        fq_list = fq.split(" ")
+        for k, item in enumerate(fq_list):
+            if k == 0:
+                read_id = item
+            if item.split("=")[0] == "ch":
+                channel_num = item.split("=")[1]
+                channel_str = "Channel_{num}".format(num=channel_num)
+        # Get ch_str, start, end
+        # If read_id and ch not set...
+        # noinspection PyUnboundLocalVariable
+        if read_id and channel_str:
+            int_data_path = app_data['bulkfile']["IntermediateData"][channel_str]["Reads"]
+            int_data_labels = {
+                'read_id': int_data_path["read_id"],
+                'read_start': int_data_path["read_start"],
+            }
+            df = pd.DataFrame(data=int_data_labels)
+            df.read_start = df.read_start / app_data['app_vars']['sf']
+            df.read_id = df.read_id.str.decode('utf8')
+            df = df.where(df.read_id == read_id)
+            df = df.dropna()
+            # !!! check that multiple rows are still here
+            start_time = math.floor(df.iloc[0, :].read_start)
+            end_time = math.ceil(df.iloc[-1, :].read_start)
+        app_data['wdg_dict']['position'].value = "{ch}:{start}-{end}".format(
+            ch=channel_num,
+            start=start_time,
+            end=end_time
+        )
+    elif re.match(r'^[0-9]{1,3}:[0-9]{1,9}-[0-9]{1,9}', new):
+        # https://regex101.com/r/zkN1j2/1
+        coords = new.split(":")
+        times = coords[1].split("-")
+        channel_num = coords[0]
+        channel_str = "Channel_{num}".format(num=channel_num)
+        (start_time, end_time) = times[0], times[1]
     else:
-        # turn box red, not fastq -->
-        input_error(app_data['wdg_dict']['fastq_input'], 'add')
-        print("Not FASTQ string!")
-        return
+        channel_str = None
+        channel_num = None
+        start_time = None
+        end_time = None
 
-    app_data['app_vars']['channel_num'] = channel_number
-    app_data['app_vars']['channel_str'] = "Channel_{ch}".format(ch=channel_number)
-    int_data_path = app_data['bulkfile']["IntermediateData"][app_data['app_vars']['channel_str']]["Reads"]
-    int_data_labels = {
-        'read_id': int_data_path["read_id"],
-        'read_start': int_data_path["read_start"],
-    }
-    df = pd.DataFrame(data=int_data_labels)
-    df.read_start = df.read_start / app_data['app_vars']['sf']
-    df.read_id = df.read_id.str.decode('utf8')
-    df = df.where(df.read_id == read_id)
-    df = df.dropna()
-    # !!! check that multiple rows are still here
-    fq_start_time = math.floor(df.iloc[0, :].read_start)
-    fq_end_time = math.ceil(df.iloc[-1, :].read_start)
+    if int(end_time) > app_data['app_vars']['len_ds']:
+        end_time = app_data['app_vars']['len_ds']
+    app_data['app_vars']['channel_str'] = channel_str
+    app_data['app_vars']['channel_num'] = int(channel_num)
+    app_data['app_vars']['start_time'] = int(start_time)
+    app_data['app_vars']['end_time'] = int(end_time)
 
-    # build widgets
-    (app_data['x_data'],
-     app_data['y_data'],
-     app_data['label_df'],
-     app_data['label_dt'],
-     app_data['app_vars']['end_time'],
-     app_data['app_vars']['start_squiggle'],
-     app_data['app_vars']['end_squiggle'],
-     app_data['app_vars']['len_ds']) = update_data(
-        (fq_start_time, fq_end_time),
-        app_data['app_vars']['sf'],
-        app_data['bulkfile'],
-        app_data['app_vars']['channel_str']
+    app_data['wdg_dict']['position'].value = "{ch}:{start}-{end}".format(
+        ch=app_data['app_vars']['channel_num'],
+        start=app_data['app_vars']['start_time'],
+        end=app_data['app_vars']['end_time']
     )
-    app_data['wdg_dict'] = build_widgets()
-    app_data['wdg_dict']['x_axis_range'].value = (fq_start_time, fq_end_time)
-    layout.children[0] = widgetbox(list(app_data['wdg_dict'].values()), width=int(cfg['wdg_width']))
+
+    update()
+
+
+def update_data(bulkfile, app_vars):
+    app_vars['duration'] = app_vars['end_time'] - app_vars['start_time']
+    # get times and squiggles
+    app_vars['start_squiggle'] = math.floor(app_vars['start_time'] * app_vars['sf'])
+    app_vars['end_squiggle'] = math.floor(app_vars['end_time'] * app_vars['sf'])
+    # get data in numpy arrays
+    step = 1 / app_vars['sf']
+    app_data['x_data'] = np.arange(app_vars['start_time'], app_vars['end_time'], step)
+    app_data['y_data'] = bulkfile["Raw"][app_vars['channel_str']]["Signal"][()]
+    app_vars['len_ds'] = len(app_data['y_data']) / app_vars['sf']
+    app_data['y_data'] = app_data['y_data'][app_vars['start_squiggle']:app_vars['end_squiggle']]
+    # get annotations
+    path = bulkfile["IntermediateData"][app_vars['channel_str']]["Reads"]
+    fields = ['read_id', 'read_start', 'modal_classification']
+    app_data['label_df'], app_data['label_dt'] = get_annotations(path, fields)
+
+    app_data['label_df'] = app_data['label_df'].drop_duplicates(subset="read_id", keep="first")
+    app_data['label_df'].read_start = app_data['label_df'].read_start / app_vars['sf']
+    app_data['label_df'].read_id = app_data['label_df'].read_id.str.decode('utf8')
+
+    path = bulkfile["StateData"][app_vars['channel_str']]["States"]
+    fields = ['analysis_raw_index', 'summary_state']
+    state_label_df, state_label_dtypes = get_annotations(path, fields)
+    state_label_df.analysis_raw_index = state_label_df.analysis_raw_index / app_vars['sf']
+    state_label_df = state_label_df.rename(
+        columns={'analysis_raw_index': 'read_start', 'summary_state': 'modal_classification'}
+    )
+    app_data['label_df'] = app_data['label_df'].append(state_label_df, ignore_index=True)
+    app_data['label_df'].sort_values(by='read_start', ascending=True, inplace=True)
+    app_data['label_dt'].update(state_label_dtypes)
+
+
+def get_annotations(path, fields):
+    """
+    Given a path to a hdf5 data set and a list of fields, return a
+    :param path: path to hdf5 dataset eg: file[path][to][dataset]
+    :param fields: list of fields in the dataset eg: ['list', 'of', 'fields'], at least one field should have an enum
+    :return: pandas df of fields and dictionary of enumerated
+    """
+    data_labels = {}
+    for field in fields:
+        if h5py.check_dtype(enum=path.dtype[field]):
+            dataset_dtype = h5py.check_dtype(enum=path.dtype[field])
+            # data_dtype may lose some dataset dtypes there are duplicates of 'v'
+            data_dtypes = {v: k for k, v in dataset_dtype.items()}
+        data_labels[field] = path[field]
+
+    labels_df = pd.DataFrame(data=data_labels)
+    return labels_df, data_dtypes
+
+
+def update():
+    update_data(
+        app_data['bulkfile'],
+        app_data['app_vars']
+    )
+    if app_data['INIT']:
+        build_widgets()
+        layout.children[0] = widgetbox(list(app_data['wdg_dict'].values()), width=int(cfg_po['wdg_width']))
+        app_data['INIT'] = False
+    app_data['wdg_dict']['duration'].text = "Duration: {d} seconds".format(d=app_data['app_vars']['duration'])
     layout.children[1] = create_figure(
         app_data['x_data'],
         app_data['y_data'],
-        app_data['label_df'],
-        app_data['label_dt'],
+        app_data,
         app_data['wdg_dict'],
         app_data['app_vars']
     )
 
 
+def update_other(attr, old, new):
+    update()
+
+
 def build_widgets():
     """"""
     check_labels = []
+    jump_list = []
     check_active = []
     app_data['label_mp'] = {}
     for k, v in enumerate(app_data['label_dt'].items()):
         app_data['label_mp'][v[0]] = k
         check_labels.append(v[1])
         check_active.append(k)
+        jump_list.append((v[1], str(v[0])))
 
     wdg = app_data['wdg_dict']
-    wdg['channel_select'] = TextInput(title='Channel:', value=app_data['app_vars']['channel_num'], css_classes=[])
-    wdg['x_axis_range'] = RangeSlider(start=0, end=app_data['app_vars']['len_ds'], value=(0, 0), step=1,
-                                      title="X range")
-    wdg['update_button'] = Button(label="Update plot", button_type="primary")
+    wdg['duration'] = PreText(text="Duration: {d} seconds".format(d=app_data['app_vars']['duration']))
+    wdg['jump_next'] = Dropdown(label="Jump to next", button_type="primary", menu=jump_list)
+    wdg['jump_prev'] = Dropdown(label="Jump to previous", button_type="primary", menu=jump_list)
+
     wdg['toggle_x_axis'] = Toggle(
         label="Fixed x-axis",
         button_type="danger",
@@ -160,42 +253,49 @@ def build_widgets():
         css_classes=['toggle_button_g_r'],
         active=True
     )
+
+    wdg['label_options'] = Div(text='Select annotations', css_classes=['filter-dropdown', 'caret-down'])
+    wdg['label_filter'] = CheckboxGroup(labels=check_labels, active=check_active, css_classes=['filter-drop'])
+
+    wdg['plot_options'] = Div(text='Plot Adjustments', css_classes=['adjust-dropdown', 'caret-down'])
+    wdg['po_width'] = TextInput(title='Plot Width (px)', value=cfg_po['plot_width'], css_classes=['adjust-drop'])
+    wdg['po_height'] = TextInput(title='Plot Height (px)', value=cfg_po['plot_height'], css_classes=['adjust-drop'])
+    wdg['po_x_width'] = TextInput(title="x width", value=cfg_po['x_width'], css_classes=['adjust-drop'])
+    wdg['po_y_max'] = TextInput(title="y max", value=cfg_po['y_max'], css_classes=['adjust-drop'])
+    wdg['po_y_min'] = TextInput(title="y min", value=cfg_po['y_min'], css_classes=['adjust-drop'])
+    wdg['label_height'] = TextInput(
+        title="Annotation height (y-axis)",
+        value=cfg_po['label_height'],
+        css_classes=['adjust-drop']
+    )
     wdg['toggle_smoothing'] = Toggle(
         label="Toggle smoothing",
         button_type="danger",
-        css_classes=['toggle_button_o_r'],
+        css_classes=['toggle_button_o_r', 'adjust-drop'],
         active=True
     )
-    wdg['label_options'] = Div(text='Select annotations', css_classes=['filter-dropdown', 'caret-down'])
-    wdg['label_filter'] = CheckboxGroup(labels=check_labels, active=check_active, css_classes=['filter-drop'])
-    wdg['plot_options'] = Div(text='Plot Adjustments', css_classes=['adjust-dropdown', 'caret-down'])
-    wdg['po_width'] = TextInput(title='Plot Width (px)', value=str(int(cfg['plot_width'])), css_classes=['adjust-drop'])
-    wdg['po_height'] = TextInput(title='Plot Height (px)', value=str(cfg['plot_height']), css_classes=['adjust-drop'])
-    wdg['po_x_width'] = TextInput(title="x width", value=str(int(cfg['x_width'])), css_classes=['adjust-drop'])
-    wdg['po_y_max'] = TextInput(title="y max", value=str(int(cfg['y_max'])), css_classes=['adjust-drop'])
-    wdg['po_y_min'] = TextInput(title="y min", value=str(int(cfg['y_min'])), css_classes=['adjust-drop'])
 
-    wdg['channel_select'].on_change('value', update)
-    wdg['update_button'].on_click(update_plot)
+    wdg['label_filter'].on_change('active', update_other)
+    wdg['jump_next'].on_click(next_update)
+    wdg['jump_prev'].on_click(prev_update)
 
     for name in toggle_inputs:
         wdg[name].on_click(toggle_button)
     for name in int_inputs:
         wdg[name].on_change('value', is_input_int)
 
-    wdg['label_filter'].on_change('active', update)
     return wdg
 
 
-def create_figure(x_data, y_data, label_df, label_dt, wdg, app_vars):
+def create_figure(x_data, y_data, app_data, wdg, app_vars):
     if wdg["toggle_smoothing"].active:
-        w_range = wdg['x_axis_range'].value[1] - wdg['x_axis_range'].value[0]
-        thin_factor = thinning_factor(w_range)
+        w_range = app_vars['duration']
+        divisor = math.e ** 2.5
+        thin_factor = math.ceil(w_range / divisor)
     else:
-        thin_factor = 4
+        thin_factor = 1
     if thin_factor == 0:
         thin_factor = 1
-    thin_factor = int(thin_factor)
 
     greater_delete_index = np.argwhere(y_data > 2200)
     x_data = np.delete(x_data, greater_delete_index)
@@ -208,31 +308,35 @@ def create_figure(x_data, y_data, label_df, label_dt, wdg, app_vars):
     p = figure(
         plot_height=int(wdg['po_height'].value),
         plot_width=int(wdg['po_width'].value),
-        title="Channel_{ch} Raw Output at {sf} events per second: {tf}".format(
-            ch=wdg['channel_select'].value,
-            sf=app_vars['sf'],
-            tf=thin_factor
+        title="{ch} Raw Output at {sf} events per second".format(
+            ch=app_vars['channel_str'],
+            sf=app_vars['sf']
         ),
         toolbar_location="above",
         tools=['xpan', 'xbox_zoom', 'save', 'reset'],
     )
+
+    p.toolbar.logo = None
     p.yaxis.axis_label = "Current (pA)"
     p.yaxis.major_label_orientation = "horizontal"
     p.xaxis.axis_label = "Time (seconds)"
     p.line(x_data[::thin_factor], y_data[::thin_factor], line_width=1)
+
     if wdg['toggle_y_axis'].active:
         p.y_range = Range1d(int(wdg['po_y_min'].value), int(wdg['po_y_max'].value))
 
     if wdg['toggle_x_axis'].active:
-        p.x_range = Range1d(wdg['x_axis_range'].value[0], wdg['x_axis_range'].value[0] + int(wdg['po_x_width'].value))
-
+        p.x_range = Range1d(
+            app_vars['start_time'], app_vars['start_time'] + int(wdg['po_x_width'].value)
+        )
     p.xaxis.major_label_orientation = math.radians(45)
 
     if wdg['toggle_annotations'].active:
-        label_df = label_df[(label_df['read_start'] >= wdg['x_axis_range'].value[0]) &
-                            (label_df['read_start'] <= app_vars['end_time'])]
-
-        for index, label in label_df.iterrows():
+        slim_label_df = app_data['label_df'][
+            (app_data['label_df']['read_start'] >= app_vars['start_time']) &
+            (app_data['label_df']['read_start'] <= app_vars['end_time'])
+        ]
+        for index, label in slim_label_df.iterrows():
             if app_data['label_mp'][label.modal_classification] in wdg['label_filter'].active:
                 event_line = Span(
                     location=label.read_start,
@@ -244,8 +348,8 @@ def create_figure(x_data, y_data, label_df, label_dt, wdg, app_vars):
                 p.add_layout(event_line)
                 labels = Label(
                     x=label.read_start,
-                    y=800,
-                    text=str(label_dt[label.modal_classification]),
+                    y=int(wdg['label_height'].value),
+                    text="{cl} - {ri}".format(cl=app_data['label_dt'][label.modal_classification], ri=label.read_id),
                     level='glyph',
                     x_offset=0,
                     y_offset=0,
@@ -253,197 +357,12 @@ def create_figure(x_data, y_data, label_df, label_dt, wdg, app_vars):
                     angle=-300
                 )
                 p.add_layout(labels)
-
     return p
-
-
-def thinning_factor(window_range):
-    divend = 1000000 * math.e
-    divisor = 10000 - window_range
-    factor = (divend / divisor) - 270
-    return math.ceil(factor)
-
-
-def init_wdg_dict():
-    wdg_dict = OrderedDict()
-    wdg_dict['data_input'] = TextInput(title='Data Source:',
-                                       value="/Users/Alex/projects/bokehApp/bulkvis/data/NA12878_Run6_Sample2_29123.fast5")
-    wdg_dict['data_button'] = Button(label="Update source file", button_type="primary")
-    wdg_dict['data_button'].on_click(update_file)
-    return wdg_dict
-
-
-def update(attr, old, new):
-    try:
-        channel = int(app_data['wdg_dict']['channel_select'].value)
-        # should also check that 'input-error' is in css_classes
-        if channel in app_data['app_vars']['channel_list']:
-            input_error(app_data['wdg_dict']['channel_select'], 'remove')
-        else:
-            input_error(app_data['wdg_dict']['channel_select'], 'add')
-    except ValueError:
-        input_error(app_data['wdg_dict']['channel_select'], 'add')
-
-    app_data['app_vars']['channel_str'] = "Channel_{ch}".format(ch=app_data['wdg_dict']['channel_select'].value)
-
-    app_data['x_data'], \
-    app_data['y_data'], \
-    app_data['label_df'], \
-    app_data['label_dt'], \
-    app_data['app_vars']['end_time'], \
-    app_data['app_vars']['start_squiggle'], \
-    app_data['app_vars']['end_squiggle'], \
-    app_data['app_vars']['len_ds'] = update_data(
-        app_data['wdg_dict']['x_axis_range'].value,
-        app_data['app_vars']['sf'],
-        app_data['bulkfile'],
-        app_data['app_vars']['channel_str']
-    )
-    layout.children[1] = create_figure(
-        app_data['x_data'],
-        app_data['y_data'],
-        app_data['label_df'],
-        app_data['label_dt'],
-        app_data['wdg_dict'],
-        app_data['app_vars']
-    )
-
-
-def update_plot():
-    app_data['x_data'], \
-    app_data['y_data'], \
-    app_data['label_df'], \
-    app_data['label_dt'], \
-    app_data['app_vars']['end_time'], \
-    app_data['app_vars']['start_squiggle'], \
-    app_data['app_vars']['end_squiggle'], \
-    app_data['app_vars']['len_ds'] = update_data(
-        app_data['wdg_dict']['x_axis_range'].value,
-        app_data['app_vars']['sf'],
-        app_data['bulkfile'],
-        app_data['app_vars']['channel_str']
-    )
-    layout.children[1] = create_figure(
-        app_data['x_data'],
-        app_data['y_data'],
-        app_data['label_df'],
-        app_data['label_dt'],
-        app_data['wdg_dict'],
-        app_data['app_vars']
-    )
-
-
-def toggle_button(state):
-    layout.children[1] = create_figure(
-        app_data['x_data'],
-        app_data['y_data'],
-        app_data['label_df'],
-        app_data['label_dt'],
-        app_data['wdg_dict'],
-        app_data['app_vars']
-    )
-
-
-def update_data(start_time, sf, bulkfile, channel):
-    duration = start_time[1] - start_time[0]
-    # get times and squiggles
-    end_time, start_squiggle, end_squiggle = get_time_frames(start_time[0], duration, sf)
-    # get data in numpy arrays
-    x_data = points_index(start_time[0], end_time, sf)
-    y_data, len_ds = signal_slice(start_squiggle, end_squiggle, bulkfile, channel)
-    len_ds = len_ds / sf
-    # get annotations
-    label_df, label_dtypes = get_annotations(bulkfile, channel, sf)
-    return x_data, y_data, label_df, label_dtypes, end_time, start_squiggle, end_squiggle, len_ds
-
-
-def get_time_frames(data_start, duration, sf):
-    start_squiggle = math.floor(data_start * sf)
-    end_time = data_start + duration
-    end_squiggle = math.ceil(start_squiggle + sf * duration)
-    return end_time, start_squiggle, end_squiggle
-
-
-def enumerate_as_dict(path, field):
-    """
-    Enumerate a field datatype as a dictionary
-    :param path: string in form 'fast5["path"]["to"]["dataset"]'
-    :param field: string containing the field to get dtype for
-    :return: dictionary of enumerated value and description
-    """
-    dataset_dtype = h5py.check_dtype(enum=path.dtype[field])
-    # inv_dtype may lose some dataset dtypes there are duplicates of 'v'
-    inv_dtype = {v: k for k, v in dataset_dtype.items()}
-    return inv_dtype
-
-
-def points_index(start_time, end_time, sf):
-    step = 1 / sf
-    points_arr = np.arange(start_time, end_time, step)
-    return points_arr
-
-
-def signal_slice(data_start, data_end, file, channel):
-    dataset = file["Raw"][channel]["Signal"][()]
-    len_ds = len(dataset)
-    return dataset[data_start:data_end], len_ds
-
-
-def get_annotations(file, channel, sf):
-    int_data_path = file["IntermediateData"][channel]["Reads"]
-    int_data_dtypes = enumerate_as_dict(int_data_path, "modal_classification")
-    int_data_labels = {
-        'read_id': int_data_path["read_id"],
-        'read_start': int_data_path["read_start"],
-        'modal_classification': int_data_path["modal_classification"]
-    }
-    labels_df = pd.DataFrame(data=int_data_labels).drop_duplicates(subset="read_id", keep="first")
-    labels_df.read_start = labels_df.read_start / sf
-    labels_df.read_id = labels_df.read_id.str.decode('utf8')
-    return labels_df, int_data_dtypes
-
-
-def init_update(attr, old, new):
-    try:
-        channel = int(app_data['wdg_dict']['channel_select'].value)
-        if channel in app_data['app_vars']['channel_list']:
-            input_error(app_data['wdg_dict']['channel_select'], 'remove')
-        else:
-            input_error(app_data['wdg_dict']['channel_select'], 'add')
-    except ValueError:
-        input_error(app_data['wdg_dict']['channel_select'], 'add')
-
-    channel_number = app_data['wdg_dict']['channel_select'].value
-    app_data['app_vars']['channel_num'] = channel_number
-    app_data['app_vars']['channel_str'] = "Channel_{ch}".format(ch=channel_number)
-    (app_data['x_data'],
-     app_data['y_data'],
-     app_data['label_df'],
-     app_data['label_dt'],
-     app_data['app_vars']['end_time'],
-     app_data['app_vars']['start_squiggle'],
-     app_data['app_vars']['end_squiggle'],
-     app_data['app_vars']['len_ds']) = update_data(
-        app_data['wdg_dict']['x_axis_range'].value,
-        app_data['app_vars']['sf'],
-        app_data['bulkfile'],
-        app_data['app_vars']['channel_str']
-    )
-    build_widgets()
-    layout.children[0] = widgetbox(list(app_data['wdg_dict'].values()), width=int(cfg['wdg_width']))
-    layout.children[1] = create_figure(
-        app_data['x_data'],
-        app_data['y_data'],
-        app_data['label_df'],
-        app_data['label_dt'],
-        app_data['wdg_dict'],
-        app_data['app_vars']
-    )
 
 
 def is_input_int(attr, old, new):
     try:
-        val = int(new)
+        int(new)
         for wdg in int_inputs:
             if (app_data['wdg_dict'][wdg].value == new) and ('input-error' in app_data['wdg_dict'][wdg].css_classes):
                 input_error(app_data['wdg_dict'][wdg], 'remove')
@@ -453,7 +372,18 @@ def is_input_int(attr, old, new):
                 input_error(app_data['wdg_dict'][wdg], 'add')
                 return
 
-    update(attr, old, new)
+    new = new.lstrip('0')
+    update()
+
+
+def toggle_button(state):
+    layout.children[1] = create_figure(
+        app_data['x_data'],
+        app_data['y_data'],
+        app_data,
+        app_data['wdg_dict'],
+        app_data['app_vars']
+    )
 
 
 def input_error(widget, mode):
@@ -467,43 +397,113 @@ def input_error(widget, mode):
         print("mode not recognised")
 
 
-def update_print(attr, old, new):
-    # print(self)
-    return
+def next_update(value):
+    if value != 'reset':
+        value = int(value)
+        jump_start = app_data['label_df'][
+            (app_data['label_df']['read_start'] > app_data['app_vars']['start_time'] + 1) &
+            (app_data['label_df']['modal_classification'] == value)
+            ]
+        try:
+            app_data['app_vars']['start_time'] = int(math.floor(jump_start['read_start'].iloc[0]))
+        except IndexError:
+            app_data['wdg_dict']['duration'].text += "\n{ev} event not found".format(ev=app_data['label_dt'][value])
+            return
+        except Exception as e:
+            print(type(e))
+            print(e)
+        app_data['app_vars']['end_time'] = app_data['app_vars']['start_time'] + app_data['app_vars']['duration']
+        app_data['wdg_dict']['position'].value = "{ch}:{start}-{end}".format(
+            ch=app_data['app_vars']['channel_num'],
+            start=app_data['app_vars']['start_time'],
+            end=app_data['app_vars']['end_time']
+        )
+        layout.children[1] = create_figure(
+            app_data['x_data'],
+            app_data['y_data'],
+            app_data,
+            app_data['wdg_dict'],
+            app_data['app_vars']
+        )
+        app_data['wdg_dict']['jump_next'].value = "reset"
+    else:
+        return
+
+
+def prev_update(value):
+    if value != 'reset':
+        value = int(value)
+        jump_start = app_data['label_df'][
+            (app_data['label_df']['read_start'] < app_data['app_vars']['start_time']) &
+            (app_data['label_df']['modal_classification'] == value)
+            ]
+        try:
+            app_data['app_vars']['start_time'] = int(math.floor(jump_start['read_start'].iloc[-1]))
+            # print(int(math.floor(jump_start['read_start'].iloc[-1])))
+        except IndexError:
+            app_data['wdg_dict']['duration'].text += "\n{ev} event not found".format(ev=app_data['label_dt'][value])
+            return
+        except Exception as e:
+            print(type(e))
+            print(e)
+        app_data['app_vars']['end_time'] = app_data['app_vars']['start_time'] + app_data['app_vars']['duration']
+        app_data['wdg_dict']['position'].value = "{ch}:{start}-{end}".format(
+            ch=app_data['app_vars']['channel_num'],
+            start=app_data['app_vars']['start_time'],
+            end=app_data['app_vars']['end_time']
+        )
+        layout.children[1] = create_figure(
+            app_data['x_data'],
+            app_data['y_data'],
+            app_data,
+            app_data['wdg_dict'],
+            app_data['app_vars']
+        )
+        app_data['wdg_dict']['jump_prev'].value = "reset"
+    else:
+        return
+
+
+def change_file(attr, old, new):
+    update_file()
 
 
 app_data = {
-    'file_src': None,               # bulkfile path (string)
-    'bulkfile': None,               # bulkfile object
-    'x_data': None,                 # numpy ndarray time points
-    'y_data': None,                 # numpy ndarray signal data
-    'label_df': None,               # pandas df of signal labels
-    'label_dt': None,               # dict of signal enumeration
-    'label_mp': None,               # dict matching labels to widget filter
-    'app_vars': {                   # dict of variables used in plots and widgets
-        'len_ds': None,                 # length of signal dataset in (seconds or events)
-        'start_time': None,             # squiggle start time in seconds
-        'end_time': None,               # squiggle end time in seconds
-        'start_squiggle': None,         # squiggle start position (events)
-        'end_squiggle': None,           # squiggle end position (events)
-        'channel_str': None,            # 'Channel_NNN' (string)
-        'channel_num': None,            # Channel number (int)
-        'duration': None,               # squiggle duration (seconds)
-        'sf': None,                     # sample frequency (int)
-        'channel_list': None,           # list of all channels as int
-        'fastq_str': None,              # fastq sequence id (string)
-        'fastq_read_id': None           # fastq read id (string)
+    'file_src': None,  # bulkfile path (string)
+    'bulkfile': None,  # bulkfile object
+    'x_data': None,  # numpy ndarray time points
+    'y_data': None,  # numpy ndarray signal data
+    'label_df': None,  # pandas df of signal labels
+    'label_dt': None,  # dict of signal enumeration
+    'label_mp': None,  # dict matching labels to widget filter
+    'app_vars': {  # dict of variables used in plots and widgets
+        'len_ds': None,  # length of signal dataset in (seconds or events)
+        'start_time': None,  # squiggle start time in seconds
+        'end_time': None,  # squiggle end time in seconds
+        'duration': None,  # squiggle duration in seconds
+        'start_squiggle': None,  # squiggle start position (events)
+        'end_squiggle': None,  # squiggle end position (events)
+        'channel_str': None,  # 'Channel_NNN' (string)
+        'channel_num': None,  # Channel number (int)
+        'sf': None,  # sample frequency (int)
+        'channel_list': None,  # list of all channels as int
     },
-    'wdg_dict': None,               # dictionary of widgets
-    'controls': None,               # widgets added to widgetbox
-    'pore_plt': None                # the squiggle plot
+    'wdg_dict': None,  # dictionary of widgets
+    'controls': None,  # widgets added to widgetbox
+    'pore_plt': None,  # the squiggle plot
+    'INIT': True  # Initial plot with bulkfile (bool)
 }
 
-int_inputs = ['po_width', 'po_height', 'po_x_width', 'po_y_min', 'po_y_max']
+int_inputs = ['po_width', 'po_height', 'po_x_width', 'po_y_min', 'po_y_max', 'label_height']
 toggle_inputs = ['toggle_x_axis', 'toggle_y_axis', 'toggle_annotations', 'toggle_smoothing']
 
+app_data['app_vars']['files'] = []
+for file in os.listdir(cfg_dr['dir']):
+    if file.endswith('.fast5'):
+        app_data['app_vars']['files'].append((file, file))
+
 app_data['wdg_dict'] = init_wdg_dict()
-app_data['controls'] = widgetbox(list(app_data['wdg_dict'].values()), width=int(cfg['wdg_width']))
+app_data['controls'] = widgetbox(list(app_data['wdg_dict'].values()), width=int(cfg_po['wdg_width']))
 p = figure(
     toolbar_location=None
 )
@@ -519,4 +519,4 @@ layout = row(
 )
 
 curdoc().add_root(layout)
-curdoc().title = "Alex's APP"
+curdoc().title = "bulkvis"
