@@ -9,7 +9,11 @@ import numpy as np
 import pandas as pd
 from bokeh.plotting import curdoc, figure
 from bokeh.layouts import row, widgetbox
-from bokeh.models import TextInput, Toggle, Div, Range1d, Label, Span, CheckboxGroup, Dropdown, PreText, Select
+from bokeh.models import TextInput, Toggle, Div, Range1d, Label, Span, CheckboxGroup, Dropdown, PreText, Select, Button
+from bokeh.models import CustomJS
+from bokeh.models import BoxSelectTool as BST
+
+from stitch import export_read_file
 
 config = configparser.ConfigParser()
 config.read(os.path.dirname(os.path.realpath(__file__)) + '/config.ini')
@@ -274,10 +278,16 @@ def build_widgets():
         css_classes=['toggle_button_o_r', 'adjust-drop'],
         active=True
     )
+    wdg['save_read_file'] = Button(
+        label="Save read file",
+        button_type="success",
+        css_classes=[]
+    )
 
     wdg['label_filter'].on_change('active', update_other)
     wdg['jump_next'].on_click(next_update)
     wdg['jump_prev'].on_click(prev_update)
+    wdg['save_read_file'].on_click(export_data)
 
     for name in toggle_inputs:
         wdg[name].on_click(toggle_button)
@@ -316,6 +326,7 @@ def create_figure(x_data, y_data, app_data, wdg, app_vars):
         tools=['xpan', 'xbox_zoom', 'save', 'reset'],
     )
 
+    p.add_tools(BST(dimensions='width'))
     p.toolbar.logo = None
     p.yaxis.axis_label = "Current (pA)"
     p.yaxis.major_label_orientation = "horizontal"
@@ -468,6 +479,17 @@ def change_file(attr, old, new):
     update_file()
 
 
+def export_data():
+    # start_index = app_data['app_vars']['start_time'] * app_data['app_vars']['sf']
+    # end_index = app_data['app_vars']['end_time'] * app_data['app_vars']['sf']
+    export_read_file(
+        app_data['app_vars']['channel_num'],
+        app_data['app_vars']['start_squiggle'],
+        app_data['app_vars']['end_squiggle'],
+        app_data['bulkfile'],
+        cfg_dr['out']
+    )
+
 app_data = {
     'file_src': None,  # bulkfile path (string)
     'bulkfile': None,  # bulkfile object
@@ -481,8 +503,8 @@ app_data = {
         'start_time': None,  # squiggle start time in seconds
         'end_time': None,  # squiggle end time in seconds
         'duration': None,  # squiggle duration in seconds
-        'start_squiggle': None,  # squiggle start position (events)
-        'end_squiggle': None,  # squiggle end position (events)
+        'start_squiggle': None,  # squiggle start position (samples)
+        'end_squiggle': None,  # squiggle end position (samples)
         'channel_str': None,  # 'Channel_NNN' (string)
         'channel_num': None,  # Channel number (int)
         'sf': None,  # sample frequency (int)
@@ -504,6 +526,13 @@ for file in os.listdir(cfg_dr['dir']):
 
 app_data['wdg_dict'] = init_wdg_dict()
 app_data['controls'] = widgetbox(list(app_data['wdg_dict'].values()), width=int(cfg_po['wdg_width']))
+
+callback = CustomJS(code="""
+    console.log(cd_data)
+""")
+
+box_select = BST(callback=callback)
+
 p = figure(
     toolbar_location=None
 )
