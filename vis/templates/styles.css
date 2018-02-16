@@ -34,7 +34,7 @@ body {
     cursor: help;
     right: 0;
 }
-.position-drop pre {
+.position-drop code {
     font-weight: bold;
     margin: 0 0;
 }

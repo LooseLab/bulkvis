@@ -8,7 +8,7 @@ import h5py
 import numpy as np
 import pandas as pd
 from bokeh.layouts import row, widgetbox
-from bokeh.models import TextInput, Toggle, Div, Range1d, Label, Span, Paragraph
+from bokeh.models import TextInput, Toggle, Div, Range1d, Label, Span
 from bokeh.models import CheckboxGroup, Dropdown, PreText, Select, Button
 from bokeh.plotting import curdoc, figure
 from stitch import export_read_file
@@ -73,8 +73,8 @@ def update_file(attr, old, new):
     app_data['wdg_dict']['file_list'] = file_wdg
     app_data['wdg_dict']['position_label'] = Div(text='Position', css_classes=['position-dropdown', 'help-text'])
     app_data['wdg_dict']['position_text'] = Div(
-        text="""Enter a position in your bulkfile as <pre>channel:start_time-end_time</pre> or a
-                FASTQ ID.
+        text="""Enter a position in your bulkfile as <code>channel:start_time-end_time</code> or a
+                <code>FASTQ ID</code>.
                 """,
         css_classes=['position-drop']
     )
@@ -225,10 +225,10 @@ def update():
         layout.children[0] = widgetbox(list(app_data['wdg_dict'].values()), width=int(cfg_po['wdg_width']))
         app_data['INIT'] = False
     app_data['wdg_dict']['duration'].text = "Duration: {d} seconds".format(d=app_data['app_vars']['duration'])
+    app_data['wdg_dict']['toggle_smoothing'].active = True
     layout.children[1] = create_figure(
         app_data['x_data'],
         app_data['y_data'],
-        app_data,
         app_data['wdg_dict'],
         app_data['app_vars']
     )
@@ -260,7 +260,6 @@ def build_widgets():
         button_type="success",
         css_classes=[]
     )
-
     wdg['label_options'] = Div(text='Select annotations', css_classes=['filter-dropdown', 'caret-down'])
     wdg['toggle_annotations'] = Toggle(
         label="Display annotations",
@@ -269,7 +268,6 @@ def build_widgets():
         active=True
     )
     wdg['label_filter'] = CheckboxGroup(labels=check_labels, active=check_active, css_classes=['filter-drop'])
-
     wdg['plot_options'] = Div(text='Plot Adjustments', css_classes=['adjust-dropdown', 'caret-down'])
     wdg['po_width'] = TextInput(title='Plot Width (px)', value=cfg_po['plot_width'], css_classes=['adjust-drop'])
     wdg['po_height'] = TextInput(title='Plot Height (px)', value=cfg_po['plot_height'], css_classes=['adjust-drop'])
@@ -311,7 +309,7 @@ def build_widgets():
     return wdg
 
 
-def create_figure(x_data, y_data, app_data, wdg, app_vars):
+def create_figure(x_data, y_data, wdg, app_vars):
     if wdg["toggle_smoothing"].active:
         w_range = app_vars['duration']
         divisor = math.e ** 2.5
@@ -337,7 +335,9 @@ def create_figure(x_data, y_data, app_data, wdg, app_vars):
             sf=app_vars['sf']
         ),
         toolbar_location="above",
-        tools=['xpan', 'xbox_zoom', 'save', 'reset'],
+        tools=['xpan', 'xbox_zoom', 'xwheel_zoom', 'undo', 'reset', 'save'],
+        active_drag="xpan",
+        active_scroll="xwheel_zoom",
     )
 
     p.toolbar.logo = None
@@ -349,12 +349,22 @@ def create_figure(x_data, y_data, app_data, wdg, app_vars):
     if wdg['toggle_y_axis'].active:
         p.y_range = Range1d(int(wdg['po_y_min'].value), int(wdg['po_y_max'].value))
 
-    if wdg['toggle_x_axis'].active:
-        p.x_range = Range1d(
-            app_vars['start_time'], app_vars['start_time'] + int(cfg_po['x_width'])
-        )
-    p.xaxis.major_label_orientation = math.radians(45)
+    if not wdg['toggle_x_axis'].active:
+        try:
+            p.x_range = Range1d(start=app_vars['start'], end=app_vars['end'])
+        except KeyError:
+            pass
+    else:
+        try:
+            p.x_range = Range1d(app_vars['start'], app_vars['start'] + int(cfg_po['x_width']))
+        except KeyError:
+            p.x_range = Range1d(app_vars['start_time'], app_vars['start_time'] + int(cfg_po['x_width']))
 
+    p.xaxis.major_label_orientation = math.radians(45)
+    p.x_range.on_change("start", range_update)
+    p.x_range.on_change("end", range_update)
+    # for thing in p.tools:
+    #     print(thing, dir(thing))
     if wdg['toggle_annotations'].active:
         slim_label_df = app_data['label_df'][
             (app_data['label_df']['read_start'] >= app_vars['start_time']) &
@@ -404,7 +414,6 @@ def toggle_button(state):
     layout.children[1] = create_figure(
         app_data['x_data'],
         app_data['y_data'],
-        app_data,
         app_data['wdg_dict'],
         app_data['app_vars']
     )
@@ -445,7 +454,6 @@ def next_update(value):
         layout.children[1] = create_figure(
             app_data['x_data'],
             app_data['y_data'],
-            app_data,
             app_data['wdg_dict'],
             app_data['app_vars']
         )
@@ -479,7 +487,6 @@ def prev_update(value):
         layout.children[1] = create_figure(
             app_data['x_data'],
             app_data['y_data'],
-            app_data,
             app_data['wdg_dict'],
             app_data['app_vars']
         )
@@ -499,6 +506,14 @@ def export_data():
         app_data['wdg_dict']['duration'].text += "\nread file created"
     else:
         app_data['wdg_dict']['duration'].text += "\nError: read file not created"
+
+
+def range_update(attr, old, new):
+    app_data['app_vars'][attr] = new
+
+
+def print_up():
+    print("here")
 
 
 app_data = {
