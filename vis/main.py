@@ -259,6 +259,24 @@ def build_widgets():
         label="Save read file",
         button_type="success",
         css_classes=[]
+    )    
+    app_data['wdg_dict']['bulkfile_info'] = Div(text='Bulkfile info', css_classes=['bulkfile-dropdown', 'help-text'])
+    app_data['wdg_dict']['bulkfile_text'] = Div(
+        text="""<b>Experiment:</b> <br><code>{exp}</code><br>
+                <b>Flowcell ID:</b> <br><code>{fc_id}</code><br>
+                <b>MinION ID:</b> <br><code>{m_id}</code><br>
+                <b>Sequencing kit:</b> <br><code>{sk}</code><br>
+                <b>Flowcell type:</b> <br><code>{fc_t}</code><br>
+                <b>ASIC ID:</b> <br><code>{asic}</code>
+                """.format(
+                    exp=app_data['bulkfile']["UniqueGlobalKey"]["tracking_id"].attrs["sample_id"].decode('utf8'),
+                    fc_id=app_data['bulkfile']["UniqueGlobalKey"]["tracking_id"].attrs["flow_cell_id"].decode('utf8'),
+                    m_id=app_data['bulkfile']["UniqueGlobalKey"]["tracking_id"].attrs["device_id"].decode('utf8'),
+                    sk=app_data['bulkfile']["UniqueGlobalKey"]["context_tags"].attrs["sequencing_kit"].decode('utf8'),
+                    fc_t=app_data['bulkfile']["UniqueGlobalKey"]["context_tags"].attrs["flowcell_type"].decode('utf8'),
+                    asic=app_data['bulkfile']["UniqueGlobalKey"]["tracking_id"].attrs["asic_id"].decode('utf8')
+                ),
+        css_classes=['bulkfile-drop']
     )
     wdg['label_options'] = Div(text='Select annotations', css_classes=['filter-dropdown', 'caret-down'])
     wdg['toggle_annotations'] = Toggle(
@@ -335,9 +353,8 @@ def create_figure(x_data, y_data, wdg, app_vars):
             sf=app_vars['sf']
         ),
         toolbar_location="above",
-        tools=['xpan', 'xbox_zoom', 'xwheel_zoom', 'undo', 'reset', 'save'],
-        active_drag="xpan",
-        active_scroll="xwheel_zoom",
+        tools=['xpan', 'xbox_zoom', 'undo', 'reset', 'save'],
+        active_drag="xpan"
     )
 
     p.toolbar.logo = None
@@ -350,21 +367,10 @@ def create_figure(x_data, y_data, wdg, app_vars):
         p.y_range = Range1d(int(wdg['po_y_min'].value), int(wdg['po_y_max'].value))
 
     if not wdg['toggle_x_axis'].active:
-        try:
-            p.x_range = Range1d(start=app_vars['start'], end=app_vars['end'])
-        except KeyError:
-            pass
-    else:
-        try:
-            p.x_range = Range1d(app_vars['start'], app_vars['start'] + int(cfg_po['x_width']))
-        except KeyError:
-            p.x_range = Range1d(app_vars['start_time'], app_vars['start_time'] + int(cfg_po['x_width']))
+        p.x_range = Range1d(app_vars['start_time'], app_vars['start_time'] + int(cfg_po['x_width']))
 
     p.xaxis.major_label_orientation = math.radians(45)
-    p.x_range.on_change("start", range_update)
-    p.x_range.on_change("end", range_update)
-    # for thing in p.tools:
-    #     print(thing, dir(thing))
+
     if wdg['toggle_annotations'].active:
         slim_label_df = app_data['label_df'][
             (app_data['label_df']['read_start'] >= app_vars['start_time']) &
@@ -391,6 +397,8 @@ def create_figure(x_data, y_data, wdg, app_vars):
                     angle=-300
                 )
                 p.add_layout(labels)
+    p.x_range.on_change('start', range_update)
+    p.x_range.on_change('end', range_update)
     return p
 
 
@@ -496,10 +504,16 @@ def prev_update(value):
 
 
 def export_data():
+    try:
+        start_val = math.floor(app_data['app_vars']['start'] * app_data['app_vars']['sf'])
+        end_val = math.ceil(app_data['app_vars']['end'] * app_data['app_vars']['sf'])
+    except KeyError:
+        start_val = app_data['app_vars']['start_squiggle']
+        end_val = app_data['app_vars']['end_squiggle']
     if export_read_file(
         app_data['app_vars']['channel_num'],
-        app_data['app_vars']['start_squiggle'],
-        app_data['app_vars']['end_squiggle'],
+        start_val,
+        end_val,
         app_data['bulkfile'],
         cfg_dr['out']
     ) == 0:
@@ -510,10 +524,6 @@ def export_data():
 
 def range_update(attr, old, new):
     app_data['app_vars'][attr] = new
-
-
-def print_up():
-    print("here")
 
 
 app_data = {

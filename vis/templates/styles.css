@@ -19,20 +19,19 @@ body {
     cursor: pointer;
     margin-top: 20px;
 }
-.adjust-dropdown.caret-down > div :after,
-.filter-dropdown.caret-down > div :after{
+/*.adjust-dropdown.caret-down > div :after,*/
+.caret-down > div :after{
     content: ' \25BC';
 }
-.adjust-dropdown.caret-up > div :after,
-.filter-dropdown.caret-up > div :after{
-    content: ' \25B2';
-}
-.position-dropdown.help-text > div :after{
+.help-text > div :after{
     content: ' [+]';
+    display: inline-block;
     font-weight: bold;
     color: blue;
     cursor: help;
     right: 0;
+    padding-bottom: 3px;
+    padding-left: 5px;
 }
 .position-drop code {
     font-weight: bold;
