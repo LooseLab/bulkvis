@@ -10,7 +10,7 @@ def export_read_file(channel, start_index, end_index, bulkfile, output_dir):
     :param end_index: int, end index for read
     :param bulkfile: bulkfile object
     :param output_dir: str, output directory, including trailing slash
-    :return:
+    :return: 0 for success
     """
 
     out_filename = bulkfile["UniqueGlobalKey"]["context_tags"].attrs["filename"].decode('utf8')
@@ -93,7 +93,7 @@ def export_read_file(channel, start_index, end_index, bulkfile, output_dir):
     )
 
     readfile.close()
-    return
+    return 0
 
 """
 ToDo:

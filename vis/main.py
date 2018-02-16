@@ -1,18 +1,16 @@
-from collections import OrderedDict
 import configparser
 import math
 import os
 import re
+from collections import OrderedDict
 
 import h5py
 import numpy as np
 import pandas as pd
-from bokeh.plotting import curdoc, figure
 from bokeh.layouts import row, widgetbox
-from bokeh.models import TextInput, Toggle, Div, Range1d, Label, Span, CheckboxGroup, Dropdown, PreText, Select, Button
-from bokeh.models import CustomJS
-from bokeh.models import BoxSelectTool as BST
-
+from bokeh.models import TextInput, Toggle, Div, Range1d, Label, Span, Paragraph
+from bokeh.models import CheckboxGroup, Dropdown, PreText, Select, Button
+from bokeh.plotting import curdoc, figure
 from stitch import export_read_file
 
 config = configparser.ConfigParser()
@@ -25,15 +23,26 @@ cfg_lo = config['labels']
 def init_wdg_dict():
     wdg_dict = OrderedDict()
     wdg_dict['file_list'] = Select(title="Select file:", options=app_data['app_vars']['files'])
-    wdg_dict['file_list'].on_change('value', change_file)
+    wdg_dict['file_list'].on_change('value', update_file)
     return wdg_dict
 
 
-def update_file():
+def update_file(attr, old, new):
     """"""
     if app_data['bulkfile']:
         app_data['bulkfile'].flush()
         app_data['bulkfile'].close()
+
+    if new == "":
+        app_data['wdg_dict'] = init_wdg_dict()
+        f = figure(toolbar_location=None)
+        f.outline_line_color = None
+        f.toolbar.logo = None
+        f.xaxis.visible = False
+        f.yaxis.visible = False
+        layout.children[0] = widgetbox(list(app_data['wdg_dict'].values()), width=int(cfg_po['wdg_width']))
+        layout.children[1] = f
+        return
 
     file_src = app_data['wdg_dict']['file_list'].value
     file_wdg = app_data['wdg_dict']['file_list']
@@ -62,11 +71,18 @@ def update_file():
     # add fastq and position inputs
     app_data['wdg_dict'] = init_wdg_dict()
     app_data['wdg_dict']['file_list'] = file_wdg
+    app_data['wdg_dict']['position_label'] = Div(text='Position', css_classes=['position-dropdown', 'help-text'])
+    app_data['wdg_dict']['position_text'] = Div(
+        text="""Enter a position in your bulkfile as <pre>channel:start_time-end_time</pre> or a
+                FASTQ ID.
+                """,
+        css_classes=['position-drop']
+    )
     app_data['wdg_dict']['position'] = TextInput(
-        title="Position:",
+        # title="Position:",
         value="",
-        placeholder="Enter position or FASTQ ID",
-        css_classes=[]
+        placeholder="e.g 391:120-150 or FASTQ ID",
+        css_classes=['position-label']
     )
 
     app_data['wdg_dict']['position'].on_change("value", parse_position)
@@ -231,57 +247,56 @@ def build_widgets():
     for k, v in enumerate(app_data['label_dt'].items()):
         app_data['label_mp'][v[0]] = k
         check_labels.append(v[1])
-        check_active.append(k)
+        if cfg_lo[v[1]] == 'True':
+            check_active.append(k)
         jump_list.append((v[1], str(v[0])))
 
     wdg = app_data['wdg_dict']
     wdg['duration'] = PreText(text="Duration: {d} seconds".format(d=app_data['app_vars']['duration']))
     wdg['jump_next'] = Dropdown(label="Jump to next", button_type="primary", menu=jump_list)
     wdg['jump_prev'] = Dropdown(label="Jump to previous", button_type="primary", menu=jump_list)
-
-    wdg['toggle_x_axis'] = Toggle(
-        label="Fixed x-axis",
-        button_type="danger",
-        css_classes=['toggle_button_g_r'],
-        active=True
-    )
-    wdg['toggle_y_axis'] = Toggle(
-        label="Fixed Y-axis",
-        button_type="danger",
-        css_classes=['toggle_button_g_r'],
-        active=True
-    )
-    wdg['toggle_annotations'] = Toggle(
-        label="Display annotations",
-        button_type="danger",
-        css_classes=['toggle_button_g_r'],
-        active=True
+    wdg['save_read_file'] = Button(
+        label="Save read file",
+        button_type="success",
+        css_classes=[]
     )
 
     wdg['label_options'] = Div(text='Select annotations', css_classes=['filter-dropdown', 'caret-down'])
+    wdg['toggle_annotations'] = Toggle(
+        label="Display annotations",
+        button_type="danger",
+        css_classes=['toggle_button_g_r', 'filter-drop'],
+        active=True
+    )
     wdg['label_filter'] = CheckboxGroup(labels=check_labels, active=check_active, css_classes=['filter-drop'])
 
     wdg['plot_options'] = Div(text='Plot Adjustments', css_classes=['adjust-dropdown', 'caret-down'])
     wdg['po_width'] = TextInput(title='Plot Width (px)', value=cfg_po['plot_width'], css_classes=['adjust-drop'])
     wdg['po_height'] = TextInput(title='Plot Height (px)', value=cfg_po['plot_height'], css_classes=['adjust-drop'])
-    wdg['po_x_width'] = TextInput(title="x width", value=cfg_po['x_width'], css_classes=['adjust-drop'])
-    wdg['po_y_max'] = TextInput(title="y max", value=cfg_po['y_max'], css_classes=['adjust-drop'])
-    wdg['po_y_min'] = TextInput(title="y min", value=cfg_po['y_min'], css_classes=['adjust-drop'])
     wdg['label_height'] = TextInput(
         title="Annotation height (y-axis)",
         value=cfg_po['label_height'],
         css_classes=['adjust-drop']
+    )
+    wdg['po_y_max'] = TextInput(title="y max", value=cfg_po['y_max'], css_classes=['adjust-drop'])
+    wdg['po_y_min'] = TextInput(title="y min", value=cfg_po['y_min'], css_classes=['adjust-drop'])
+    wdg['toggle_x_axis'] = Toggle(
+        label="Fix x-axis to {n} seconds".format(n=cfg_po['x_width']),
+        button_type="danger",
+        css_classes=['toggle_button_g_r', 'adjust-drop'],
+        active=False
+    )
+    wdg['toggle_y_axis'] = Toggle(
+        label="Fixed Y-axis",
+        button_type="danger",
+        css_classes=['toggle_button_g_r', 'adjust-drop'],
+        active=False
     )
     wdg['toggle_smoothing'] = Toggle(
         label="Toggle smoothing",
         button_type="danger",
         css_classes=['toggle_button_o_r', 'adjust-drop'],
         active=True
-    )
-    wdg['save_read_file'] = Button(
-        label="Save read file",
-        button_type="success",
-        css_classes=[]
     )
 
     wdg['label_filter'].on_change('active', update_other)
@@ -293,7 +308,6 @@ def build_widgets():
         wdg[name].on_click(toggle_button)
     for name in int_inputs:
         wdg[name].on_change('value', is_input_int)
-
     return wdg
 
 
@@ -307,11 +321,11 @@ def create_figure(x_data, y_data, app_data, wdg, app_vars):
     if thin_factor == 0:
         thin_factor = 1
 
-    greater_delete_index = np.argwhere(y_data > 2200)
+    greater_delete_index = np.argwhere(y_data > int(cfg_po['upper_cut_off']))
     x_data = np.delete(x_data, greater_delete_index)
     y_data = np.delete(y_data, greater_delete_index)
 
-    lesser_delete_index = np.argwhere(y_data < -1000)
+    lesser_delete_index = np.argwhere(y_data < int(cfg_po['lower_cut_off']))
     x_data = np.delete(x_data, lesser_delete_index)
     y_data = np.delete(y_data, lesser_delete_index)
 
@@ -326,7 +340,6 @@ def create_figure(x_data, y_data, app_data, wdg, app_vars):
         tools=['xpan', 'xbox_zoom', 'save', 'reset'],
     )
 
-    p.add_tools(BST(dimensions='width'))
     p.toolbar.logo = None
     p.yaxis.axis_label = "Current (pA)"
     p.yaxis.major_label_orientation = "horizontal"
@@ -338,7 +351,7 @@ def create_figure(x_data, y_data, app_data, wdg, app_vars):
 
     if wdg['toggle_x_axis'].active:
         p.x_range = Range1d(
-            app_vars['start_time'], app_vars['start_time'] + int(wdg['po_x_width'].value)
+            app_vars['start_time'], app_vars['start_time'] + int(cfg_po['x_width'])
         )
     p.xaxis.major_label_orientation = math.radians(45)
 
@@ -475,20 +488,18 @@ def prev_update(value):
         return
 
 
-def change_file(attr, old, new):
-    update_file()
-
-
 def export_data():
-    # start_index = app_data['app_vars']['start_time'] * app_data['app_vars']['sf']
-    # end_index = app_data['app_vars']['end_time'] * app_data['app_vars']['sf']
-    export_read_file(
+    if export_read_file(
         app_data['app_vars']['channel_num'],
         app_data['app_vars']['start_squiggle'],
         app_data['app_vars']['end_squiggle'],
         app_data['bulkfile'],
         cfg_dr['out']
-    )
+    ) == 0:
+        app_data['wdg_dict']['duration'].text += "\nread file created"
+    else:
+        app_data['wdg_dict']['duration'].text += "\nError: read file not created"
+
 
 app_data = {
     'file_src': None,  # bulkfile path (string)
@@ -516,31 +527,29 @@ app_data = {
     'INIT': True  # Initial plot with bulkfile (bool)
 }
 
-int_inputs = ['po_width', 'po_height', 'po_x_width', 'po_y_min', 'po_y_max', 'label_height']
+int_inputs = ['po_width', 'po_height', 'po_y_min', 'po_y_max', 'label_height']
 toggle_inputs = ['toggle_x_axis', 'toggle_y_axis', 'toggle_annotations', 'toggle_smoothing']
 
 app_data['app_vars']['files'] = []
+first_file = 0
 for file in os.listdir(cfg_dr['dir']):
+    if first_file == 0:
+        app_data['app_vars']['files'].append(("", "--"))
+        first_file += 1
     if file.endswith('.fast5'):
         app_data['app_vars']['files'].append((file, file))
 
 app_data['wdg_dict'] = init_wdg_dict()
 app_data['controls'] = widgetbox(list(app_data['wdg_dict'].values()), width=int(cfg_po['wdg_width']))
 
-callback = CustomJS(code="""
-    console.log(cd_data)
-""")
-
-box_select = BST(callback=callback)
-
-p = figure(
+f = figure(
     toolbar_location=None
 )
-p.outline_line_color = None
-p.toolbar.logo = None
-p.xaxis.visible = False
-p.yaxis.visible = False
-app_data['pore_plt'] = p
+f.outline_line_color = None
+f.toolbar.logo = None
+f.xaxis.visible = False
+f.yaxis.visible = False
+app_data['pore_plt'] = f
 
 layout = row(
     app_data['controls'],

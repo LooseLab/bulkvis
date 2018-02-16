@@ -10,7 +10,7 @@ body {
 .bk-plot-layout{
     display: inline-block;
 }
-.adjust-drop, .filter-drop{
+.adjust-drop, .filter-drop, .position-drop{
     display: none;
 }
 .adjust-dropdown, .filter-dropdown{
@@ -27,6 +27,17 @@ body {
 .filter-dropdown.caret-up > div :after{
     content: ' \25B2';
 }
+.position-dropdown.help-text > div :after{
+    content: ' [+]';
+    font-weight: bold;
+    color: blue;
+    cursor: help;
+    right: 0;
+}
+.position-drop pre {
+    font-weight: bold;
+    margin: 0 0;
+}
 .select-opt{
     color: blue;
     cursor: pointer;
@@ -36,6 +47,7 @@ body {
 .bk-root .bk-widget-form-input{
     width: 100%;
     box-sizing: border-box;
+    display: inline-block;
 }
 .toggle_button_g_r > .bk-bs-btn.bk-bs-active {
     background-color: #5cb85c;
