@@ -260,7 +260,7 @@ def build_widgets():
         button_type="success",
         css_classes=[]
     )    
-    app_data['wdg_dict']['bulkfile_info'] = Div(text='Bulkfile info', css_classes=['bulkfile-dropdown', 'help-text'])
+    app_data['wdg_dict']['bulkfile_info'] = Div(text='Bulkfile info', css_classes=['bulkfile-dropdown', 'caret-down'])
     app_data['wdg_dict']['bulkfile_text'] = Div(
         text="""<b>Experiment:</b> <br><code>{exp}</code><br>
                 <b>Flowcell ID:</b> <br><code>{fc_id}</code><br>
@@ -366,7 +366,7 @@ def create_figure(x_data, y_data, wdg, app_vars):
     if wdg['toggle_y_axis'].active:
         p.y_range = Range1d(int(wdg['po_y_min'].value), int(wdg['po_y_max'].value))
 
-    if not wdg['toggle_x_axis'].active:
+    if wdg['toggle_x_axis'].active:
         p.x_range = Range1d(app_vars['start_time'], app_vars['start_time'] + int(cfg_po['x_width']))
 
     p.xaxis.major_label_orientation = math.radians(45)

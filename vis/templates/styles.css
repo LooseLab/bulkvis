@@ -13,18 +13,17 @@ body {
 .adjust-drop, .filter-drop, .position-drop{
     display: none;
 }
-.adjust-dropdown, .filter-dropdown{
+.caret-down > div{
     font-weight: bold;
     color: blue;
     cursor: pointer;
     margin-top: 20px;
 }
-/*.adjust-dropdown.caret-down > div :after,*/
 .caret-down > div :after{
     content: ' \25BC';
 }
 .help-text > div :after{
-    content: ' [+]';
+    content: ' [?]';
     display: inline-block;
     font-weight: bold;
     color: blue;
