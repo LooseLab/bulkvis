@@ -100,6 +100,41 @@ def open_bulkfile(path):
     sf = int(file["UniqueGlobalKey"]["context_tags"].attrs["sample_frequency"].decode('utf8'))
     # make channel_list
     channel_list = np.arange(1, len(file["Raw"]) + 1, 1).tolist()
+    try:
+        app_data['app_vars']['exp'] = file["UniqueGlobalKey"]["tracking_id"].attrs["sample_id"].decode('utf8')
+    except KeyError:
+        app_data['app_vars']['exp'] = "NA"
+    try:
+        app_data['app_vars']['fc_id'] = file["UniqueGlobalKey"]["tracking_id"].attrs["flow_cell_id"].decode('utf8'),
+    except KeyError:
+        app_data['app_vars']['fc_id'] = "NA"
+    try:
+        app_data['app_vars']['m_id'] = file["UniqueGlobalKey"]["tracking_id"].attrs["device_id"].decode('utf8'),
+    except KeyError:
+        app_data['app_vars']['m_id'] = "NA"
+    try:
+        app_data['app_vars']['hn'] = file["UniqueGlobalKey"]["tracking_id"].attrs["hostname"].decode('utf8'),
+    except KeyError:
+        app_data['app_vars']['hn'] = "NA"
+    try:
+        app_data['app_vars']['sk'] = file["UniqueGlobalKey"]["context_tags"].attrs["sequencing_kit"].decode('utf8'),
+    except KeyError:
+        app_data['app_vars']['sk'] = "NA"
+    try:
+        app_data['app_vars']['fc_t'] = file["UniqueGlobalKey"]["context_tags"].attrs["flowcell_type"].decode('utf8'),
+    except KeyError:
+        app_data['app_vars']['fc_t'] = "NA"
+    try:
+        app_data['app_vars']['asic'] = file["UniqueGlobalKey"]["tracking_id"].attrs["asic_id"].decode('utf8'),
+    except KeyError:
+        app_data['app_vars']['asic'] = "NA"
+    try:
+        app_data['app_vars']['exp_d'] = parser.parse(
+            file["UniqueGlobalKey"]["tracking_id"].attrs["exp_start_time"].decode('utf8')).strftime(
+            '%d-%b-%Y %H:%M:%S')
+    except KeyError:
+        app_data['app_vars']['exp_d'] = "NA"
+
     return file, sf, channel_list
 
 
@@ -262,11 +297,19 @@ def build_widgets():
     )
     wdg['jump_next'] = Dropdown(label="Jump to next", button_type="primary", menu=jump_list, css_classes=['jump-block'])
     wdg['jump_prev'] = Dropdown(label="Jump to previous", button_type="primary", menu=jump_list)
+
+    wdg['export_label'] = Div(text='Export data:', css_classes=['export-dropdown', 'help-text'])
+    wdg['export_text'] = Div(
+        text="""Export data, as a read file, from the current squiggle shown. These are output to the output directory 
+                specified in your config file.
+                """,
+        css_classes=['export-drop']
+    )
     wdg['save_read_file'] = Button(
         label="Save read file",
         button_type="success",
         css_classes=[]
-    )    
+    )
     wdg['bulkfile_info'] = Div(text='Bulkfile info', css_classes=['bulkfile-dropdown', 'caret-down'])
     wdg['bulkfile_text'] = Div(
         text="""<b>Experiment:</b> <br><code>{exp}</code><br>
@@ -278,15 +321,14 @@ def build_widgets():
                 <b>ASIC ID:</b> <br><code>{asic}</code><br>
                 <b>Experiment start:</b> <br><code>{exp_d}</code>
                 """.format(
-        exp=app_data['bulkfile']["UniqueGlobalKey"]["tracking_id"].attrs["sample_id"].decode('utf8'),
-        fc_id=app_data['bulkfile']["UniqueGlobalKey"]["tracking_id"].attrs["flow_cell_id"].decode('utf8'),
-        m_id=app_data['bulkfile']["UniqueGlobalKey"]["tracking_id"].attrs["device_id"].decode('utf8'),
-        hn=app_data['bulkfile']["UniqueGlobalKey"]["tracking_id"].attrs["hostname"].decode('utf8'),
-        sk=app_data['bulkfile']["UniqueGlobalKey"]["context_tags"].attrs["sequencing_kit"].decode('utf8'),
-        fc_t=app_data['bulkfile']["UniqueGlobalKey"]["context_tags"].attrs["flowcell_type"].decode('utf8'),
-        asic=app_data['bulkfile']["UniqueGlobalKey"]["tracking_id"].attrs["asic_id"].decode('utf8'),
-        exp_d=parser.parse(app_data['bulkfile']["UniqueGlobalKey"]["tracking_id"].attrs["exp_start_time"].decode('utf8')).strftime('%d-%b-%Y %H:%M:%S')
-
+        exp=app_data['app_vars']['exp'],
+        fc_id=app_data['app_vars']['fc_id'],
+        m_id=app_data['app_vars']['m_id'],
+        hn=app_data['app_vars']['hn'],
+        sk=app_data['app_vars']['sk'],
+        fc_t=app_data['app_vars']['fc_t'],
+        asic=app_data['app_vars']['asic'],
+        exp_d=app_data['app_vars']['exp_d']
         ),
         css_classes=['bulkfile-drop']
     )

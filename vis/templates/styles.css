@@ -10,7 +10,7 @@ body {
 .bk-plot-layout{
     display: inline-block;
 }
-.adjust-drop, .filter-drop,
+.adjust-drop, .filter-drop, .export-drop,
 .position-drop, .navigation-drop{
     display: none;
 }
