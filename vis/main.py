@@ -105,27 +105,27 @@ def open_bulkfile(path):
     except KeyError:
         app_data['app_vars']['exp'] = "NA"
     try:
-        app_data['app_vars']['fc_id'] = file["UniqueGlobalKey"]["tracking_id"].attrs["flow_cell_id"].decode('utf8'),
+        app_data['app_vars']['fc_id'] = file["UniqueGlobalKey"]["tracking_id"].attrs["flow_cell_id"].decode('utf8')
     except KeyError:
         app_data['app_vars']['fc_id'] = "NA"
     try:
-        app_data['app_vars']['m_id'] = file["UniqueGlobalKey"]["tracking_id"].attrs["device_id"].decode('utf8'),
+        app_data['app_vars']['m_id'] = file["UniqueGlobalKey"]["tracking_id"].attrs["device_id"].decode('utf8')
     except KeyError:
         app_data['app_vars']['m_id'] = "NA"
     try:
-        app_data['app_vars']['hn'] = file["UniqueGlobalKey"]["tracking_id"].attrs["hostname"].decode('utf8'),
+        app_data['app_vars']['hn'] = file["UniqueGlobalKey"]["tracking_id"].attrs["hostname"].decode('utf8')
     except KeyError:
         app_data['app_vars']['hn'] = "NA"
     try:
-        app_data['app_vars']['sk'] = file["UniqueGlobalKey"]["context_tags"].attrs["sequencing_kit"].decode('utf8'),
+        app_data['app_vars']['sk'] = file["UniqueGlobalKey"]["context_tags"].attrs["sequencing_kit"].decode('utf8')
     except KeyError:
         app_data['app_vars']['sk'] = "NA"
     try:
-        app_data['app_vars']['fc_t'] = file["UniqueGlobalKey"]["context_tags"].attrs["flowcell_type"].decode('utf8'),
+        app_data['app_vars']['fc_t'] = file["UniqueGlobalKey"]["context_tags"].attrs["flowcell_type"].decode('utf8')
     except KeyError:
         app_data['app_vars']['fc_t'] = "NA"
     try:
-        app_data['app_vars']['asic'] = file["UniqueGlobalKey"]["tracking_id"].attrs["asic_id"].decode('utf8'),
+        app_data['app_vars']['asic'] = file["UniqueGlobalKey"]["tracking_id"].attrs["asic_id"].decode('utf8')
     except KeyError:
         app_data['app_vars']['asic'] = "NA"
     try:
