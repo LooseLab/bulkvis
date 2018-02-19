@@ -1,4 +1,5 @@
 import configparser
+from dateutil import parser
 import math
 import os
 import re
@@ -8,7 +9,7 @@ import h5py
 import numpy as np
 import pandas as pd
 from bokeh.layouts import row, widgetbox
-from bokeh.models import TextInput, Toggle, Div, Range1d, Label, Span
+from bokeh.models import TextInput, Toggle, Div, Range1d, Label, Span, Title
 from bokeh.models import CheckboxGroup, Dropdown, PreText, Select, Button
 from bokeh.plotting import curdoc, figure
 from stitch import export_read_file
@@ -74,14 +75,14 @@ def update_file(attr, old, new):
     app_data['wdg_dict']['position_label'] = Div(text='Position', css_classes=['position-dropdown', 'help-text'])
     app_data['wdg_dict']['position_text'] = Div(
         text="""Enter a position in your bulkfile as <code>channel:start_time-end_time</code> or a
-                <code>FASTQ ID</code>.
+                <code>complete FASTQ header</code>.
                 """,
         css_classes=['position-drop']
     )
     app_data['wdg_dict']['position'] = TextInput(
         # title="Position:",
         value="",
-        placeholder="e.g 391:120-150 or FASTQ ID",
+        placeholder="e.g 391:120-150 or complete FASTQ header",
         css_classes=['position-label']
     )
 
@@ -249,33 +250,44 @@ def build_widgets():
         check_labels.append(v[1])
         if cfg_lo[v[1]] == 'True':
             check_active.append(k)
-        jump_list.append((v[1], str(v[0])))
+            jump_list.append((v[1], str(v[0])))
 
     wdg = app_data['wdg_dict']
-    wdg['duration'] = PreText(text="Duration: {d} seconds".format(d=app_data['app_vars']['duration']))
-    wdg['jump_next'] = Dropdown(label="Jump to next", button_type="primary", menu=jump_list)
+    wdg['duration'] = PreText(text="Duration: {d} seconds".format(d=app_data['app_vars']['duration']), css_classes=['duration_pre'])
+    wdg['navigation_label'] = Div(text='Navigation:', css_classes=['navigation-dropdown', 'help-text'])
+    wdg['navigation_text'] = Div(
+        text="""Use the <code><b>Jump to ...</b></code> buttons to find the next or previous event type.
+                """,
+        css_classes=['navigation-drop']
+    )
+    wdg['jump_next'] = Dropdown(label="Jump to next", button_type="primary", menu=jump_list, css_classes=['jump-block'])
     wdg['jump_prev'] = Dropdown(label="Jump to previous", button_type="primary", menu=jump_list)
     wdg['save_read_file'] = Button(
         label="Save read file",
         button_type="success",
         css_classes=[]
     )    
-    app_data['wdg_dict']['bulkfile_info'] = Div(text='Bulkfile info', css_classes=['bulkfile-dropdown', 'caret-down'])
-    app_data['wdg_dict']['bulkfile_text'] = Div(
+    wdg['bulkfile_info'] = Div(text='Bulkfile info', css_classes=['bulkfile-dropdown', 'caret-down'])
+    wdg['bulkfile_text'] = Div(
         text="""<b>Experiment:</b> <br><code>{exp}</code><br>
                 <b>Flowcell ID:</b> <br><code>{fc_id}</code><br>
                 <b>MinION ID:</b> <br><code>{m_id}</code><br>
+                <b>Hostname:</b> <br><code>{hn}</code><br>
                 <b>Sequencing kit:</b> <br><code>{sk}</code><br>
                 <b>Flowcell type:</b> <br><code>{fc_t}</code><br>
-                <b>ASIC ID:</b> <br><code>{asic}</code>
+                <b>ASIC ID:</b> <br><code>{asic}</code><br>
+                <b>Experiment start:</b> <br><code>{exp_d}</code>
                 """.format(
-                    exp=app_data['bulkfile']["UniqueGlobalKey"]["tracking_id"].attrs["sample_id"].decode('utf8'),
-                    fc_id=app_data['bulkfile']["UniqueGlobalKey"]["tracking_id"].attrs["flow_cell_id"].decode('utf8'),
-                    m_id=app_data['bulkfile']["UniqueGlobalKey"]["tracking_id"].attrs["device_id"].decode('utf8'),
-                    sk=app_data['bulkfile']["UniqueGlobalKey"]["context_tags"].attrs["sequencing_kit"].decode('utf8'),
-                    fc_t=app_data['bulkfile']["UniqueGlobalKey"]["context_tags"].attrs["flowcell_type"].decode('utf8'),
-                    asic=app_data['bulkfile']["UniqueGlobalKey"]["tracking_id"].attrs["asic_id"].decode('utf8')
-                ),
+        exp=app_data['bulkfile']["UniqueGlobalKey"]["tracking_id"].attrs["sample_id"].decode('utf8'),
+        fc_id=app_data['bulkfile']["UniqueGlobalKey"]["tracking_id"].attrs["flow_cell_id"].decode('utf8'),
+        m_id=app_data['bulkfile']["UniqueGlobalKey"]["tracking_id"].attrs["device_id"].decode('utf8'),
+        hn=app_data['bulkfile']["UniqueGlobalKey"]["tracking_id"].attrs["hostname"].decode('utf8'),
+        sk=app_data['bulkfile']["UniqueGlobalKey"]["context_tags"].attrs["sequencing_kit"].decode('utf8'),
+        fc_t=app_data['bulkfile']["UniqueGlobalKey"]["context_tags"].attrs["flowcell_type"].decode('utf8'),
+        asic=app_data['bulkfile']["UniqueGlobalKey"]["tracking_id"].attrs["asic_id"].decode('utf8'),
+        exp_d=parser.parse(app_data['bulkfile']["UniqueGlobalKey"]["tracking_id"].attrs["exp_start_time"].decode('utf8')).strftime('%d-%b-%Y %H:%M:%S')
+
+        ),
         css_classes=['bulkfile-drop']
     )
     wdg['label_options'] = Div(text='Select annotations', css_classes=['filter-dropdown', 'caret-down'])
@@ -348,13 +360,19 @@ def create_figure(x_data, y_data, wdg, app_vars):
     p = figure(
         plot_height=int(wdg['po_height'].value),
         plot_width=int(wdg['po_width'].value),
-        title="{ch} Raw Output at {sf} events per second".format(
+        toolbar_location="right",
+        tools=['xpan', 'xbox_zoom', 'undo', 'reset', 'save'],
+        active_drag="xpan",
+        title="{ch} Raw Output at {sf} samples per second".format(
             ch=app_vars['channel_str'],
             sf=app_vars['sf']
-        ),
-        toolbar_location="above",
-        tools=['xpan', 'xbox_zoom', 'undo', 'reset', 'save'],
-        active_drag="xpan"
+        )
+    )
+
+    p.add_layout(Title(
+        text="{s}".format(s=app_data['bulkfile']["UniqueGlobalKey"]["tracking_id"].attrs["sample_id"].decode('utf8')),
+        text_font_style="italic"),
+        'above'
     )
 
     p.toolbar.logo = None
@@ -535,7 +553,7 @@ app_data = {
     'label_dt': None,  # dict of signal enumeration
     'label_mp': None,  # dict matching labels to widget filter
     'app_vars': {  # dict of variables used in plots and widgets
-        'len_ds': None,  # length of signal dataset in (seconds or events)
+        'len_ds': None,  # length of signal dataset
         'start_time': None,  # squiggle start time in seconds
         'end_time': None,  # squiggle end time in seconds
         'duration': None,  # squiggle duration in seconds

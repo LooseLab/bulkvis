@@ -5,12 +5,13 @@ body {
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
     display: block;
-    margin: 0px;
+    margin: 0;
 }
 .bk-plot-layout{
     display: inline-block;
 }
-.adjust-drop, .filter-drop, .position-drop{
+.adjust-drop, .filter-drop,
+.position-drop, .navigation-drop{
     display: none;
 }
 .caret-down > div{
@@ -57,4 +58,11 @@ body {
 }
 .input-error > .bk-widget-form-input {
     background-color: #d9534f;
+}
+.duration_pre pre{
+    border-bottom: 1px solid black;
+    margin-top: -10px
+}
+.jump-block {
+    margin-top: -10px;
 }
