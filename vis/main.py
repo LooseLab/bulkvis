@@ -654,13 +654,14 @@ for index, file in enumerate(app_data['app_vars']['files']):
     file = file[0]
     bulk_file = h5py.File(Path(Path(cfg_dr['dir']) / file), 'r')
     try_path = bulk_file["Raw"]
-    for i, member in enumerate(try_path):
+    for i, channel in enumerate(try_path):
         if i == 0:
             print("†")
             try:
-                try_path[member]["Signal"][()]
+                try_path[channel]["Signal"][0]
             except KeyError:
                 del app_data['app_vars']['files'][index]
+        break
     bulk_file.flush()
     bulk_file.close()
 
