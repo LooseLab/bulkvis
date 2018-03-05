@@ -94,15 +94,3 @@ def export_read_file(channel, start_index, end_index, bulkfile, output_dir):
 
     readfile.close()
     return 0
-
-"""
-ToDo:
- - ch + r_id1, r_id2
- - NN + start, end
-
- - Build func to write read from times 
- - floor and ceil
- - fast5 toolkit
-
-
-"""
