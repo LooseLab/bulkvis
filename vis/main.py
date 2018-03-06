@@ -66,9 +66,7 @@ def update_file(attr, old, new):
     raw_path = app_data['bulkfile']["Raw"]
     for i, member in enumerate(raw_path):
         if i == 0:
-            print("∆")
             signal_ds = raw_path[member]["Signal"][()]
-            print("Ω")
             # get dataset length in seconds
             # app_data['app_vars']['len_ds'] = math.ceil(len(signal_ds) / app_data['app_vars']['sf'])
             app_data['app_vars']['len_ds'] = len(signal_ds) / app_data['app_vars']['sf']
@@ -111,6 +109,10 @@ def open_bulkfile(path):
         app_data['app_vars']['fc_id'] = file["UniqueGlobalKey"]["tracking_id"].attrs["flow_cell_id"].decode('utf8')
     except KeyError:
         app_data['app_vars']['fc_id'] = "NA"
+    try:
+        app_data['app_vars']['mk_ver'] = file["UniqueGlobalKey"]["tracking_id"].attrs["version"].decode('utf8')
+    except KeyError:
+        app_data['app_vars']['mk_ver'] = "NA"
     try:
         app_data['app_vars']['m_id'] = file["UniqueGlobalKey"]["tracking_id"].attrs["device_id"].decode('utf8')
     except KeyError:
@@ -317,6 +319,7 @@ def build_widgets():
     wdg['bulkfile_text'] = Div(
         text="""<b>Experiment:</b> <br><code>{exp}</code><br>
                 <b>Flowcell ID:</b> <br><code>{fc_id}</code><br>
+                <b>MinKNOW version:</b> <br><code>{mk_ver}</code><br>
                 <b>MinION ID:</b> <br><code>{m_id}</code><br>
                 <b>Hostname:</b> <br><code>{hn}</code><br>
                 <b>Sequencing kit:</b> <br><code>{sk}</code><br>
@@ -326,6 +329,7 @@ def build_widgets():
                 """.format(
         exp=app_data['app_vars']['exp'],
         fc_id=app_data['app_vars']['fc_id'],
+        mk_ver=app_data['app_vars']['mk_ver'],
         m_id=app_data['app_vars']['m_id'],
         hn=app_data['app_vars']['hn'],
         sk=app_data['app_vars']['sk'],
@@ -571,7 +575,6 @@ def prev_update(value):
             ]
         try:
             app_data['app_vars']['start_time'] = int(math.floor(jump_start['read_start'].iloc[-1]))
-            # print(int(math.floor(jump_start['read_start'].iloc[-1])))
         except IndexError:
             app_data['wdg_dict']['duration'].text += "\n{ev} event not found".format(ev=app_data['label_dt'][value])
             return
@@ -656,7 +659,6 @@ for index, file in enumerate(app_data['app_vars']['files']):
     try_path = bulk_file["Raw"]
     for i, channel in enumerate(try_path):
         if i == 0:
-            print("†")
             try:
                 try_path[channel]["Signal"][0]
             except KeyError:
@@ -664,8 +666,6 @@ for index, file in enumerate(app_data['app_vars']['files']):
         break
     bulk_file.flush()
     bulk_file.close()
-
-
 
 app_data['app_vars']['files'].insert(0, ("", "--"))
 
