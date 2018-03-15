@@ -1,7 +1,7 @@
 import configparser
 from dateutil import parser
 import math
-import os
+from pathlib import Path
 import re
 from collections import OrderedDict
 
@@ -15,12 +15,12 @@ from bokeh.plotting import curdoc, figure
 from stitch import export_read_file
 
 config = configparser.ConfigParser()
-config.read(os.path.dirname(os.path.realpath(__file__)) + '/config.ini')
+config.read(Path(Path(__file__).resolve().parent / 'config.ini'))
 cfg_po = config['plot_opts']
 cfg_dr = config['data']
 cfg_lo = config['labels']
 
-output_backend = set(['canvas', 'svg', 'webgl'])
+output_backend = {'canvas', 'svg', 'webgl'}
 
 
 def init_wdg_dict():
@@ -55,7 +55,7 @@ def update_file(attr, old, new):
     app_data['app_vars'] = {}
     app_data['wdg_dict'] = OrderedDict()
     app_data['label_dt'] = OrderedDict()
-    app_data['file_src'] = os.path.join(cfg_dr['dir'], file_src)
+    app_data['file_src'] = Path(Path(cfg_dr['dir']) / file_src)
     app_data['INIT'] = True
     app_data['app_vars']['files'] = file_list
 
@@ -82,7 +82,6 @@ def update_file(attr, old, new):
         css_classes=['position-drop']
     )
     app_data['wdg_dict']['position'] = TextInput(
-        # title="Position:",
         value="",
         placeholder="e.g 391:120-150 or complete FASTQ header",
         css_classes=['position-label']
@@ -110,6 +109,10 @@ def open_bulkfile(path):
         app_data['app_vars']['fc_id'] = file["UniqueGlobalKey"]["tracking_id"].attrs["flow_cell_id"].decode('utf8')
     except KeyError:
         app_data['app_vars']['fc_id'] = "NA"
+    try:
+        app_data['app_vars']['mk_ver'] = file["UniqueGlobalKey"]["tracking_id"].attrs["version"].decode('utf8')
+    except KeyError:
+        app_data['app_vars']['mk_ver'] = "NA"
     try:
         app_data['app_vars']['m_id'] = file["UniqueGlobalKey"]["tracking_id"].attrs["device_id"].decode('utf8')
     except KeyError:
@@ -316,6 +319,7 @@ def build_widgets():
     wdg['bulkfile_text'] = Div(
         text="""<b>Experiment:</b> <br><code>{exp}</code><br>
                 <b>Flowcell ID:</b> <br><code>{fc_id}</code><br>
+                <b>MinKNOW version:</b> <br><code>{mk_ver}</code><br>
                 <b>MinION ID:</b> <br><code>{m_id}</code><br>
                 <b>Hostname:</b> <br><code>{hn}</code><br>
                 <b>Sequencing kit:</b> <br><code>{sk}</code><br>
@@ -325,6 +329,7 @@ def build_widgets():
                 """.format(
         exp=app_data['app_vars']['exp'],
         fc_id=app_data['app_vars']['fc_id'],
+        mk_ver=app_data['app_vars']['mk_ver'],
         m_id=app_data['app_vars']['m_id'],
         hn=app_data['app_vars']['hn'],
         sk=app_data['app_vars']['sk'],
@@ -570,7 +575,6 @@ def prev_update(value):
             ]
         try:
             app_data['app_vars']['start_time'] = int(math.floor(jump_start['read_start'].iloc[-1]))
-            # print(int(math.floor(jump_start['read_start'].iloc[-1])))
         except IndexError:
             app_data['wdg_dict']['duration'].text += "\n{ev} event not found".format(ev=app_data['label_dt'][value])
             return
@@ -647,24 +651,35 @@ int_inputs = ['po_width', 'po_height', 'po_y_min', 'po_y_max', 'label_height']
 toggle_inputs = ['toggle_x_axis', 'toggle_y_axis', 'toggle_annotations', 'toggle_smoothing']
 
 app_data['app_vars']['files'] = []
-first_file = 0
-for file in os.listdir(cfg_dr['dir']):
-    if first_file == 0:
-        app_data['app_vars']['files'].append(("", "--"))
-        first_file += 1
-    if file.endswith('.fast5'):
-        app_data['app_vars']['files'].append((file, file))
+p = Path(cfg_dr['dir'])
+app_data['app_vars']['files'] = [(x.name, x.name) for x in p.iterdir() if x.suffix == '.fast5']
+for index, file in enumerate(app_data['app_vars']['files']):
+    file = file[0]
+    bulk_file = h5py.File(Path(Path(cfg_dr['dir']) / file), 'r')
+    try_path = bulk_file["Raw"]
+    for i, channel in enumerate(try_path):
+        if i == 0:
+            try:
+                try_path[channel]["Signal"][0]
+            except KeyError:
+                del app_data['app_vars']['files'][index]
+        break
+    bulk_file.flush()
+    bulk_file.close()
+
+app_data['app_vars']['files'].insert(0, ("", "--"))
 
 app_data['wdg_dict'] = init_wdg_dict()
 app_data['controls'] = widgetbox(list(app_data['wdg_dict'].values()), width=int(cfg_po['wdg_width']))
 
-f = figure(
-    toolbar_location=None
-)
+f = figure(toolbar_location=None)
+f.line(x=[0], y=[0])
 f.outline_line_color = None
 f.toolbar.logo = None
 f.xaxis.visible = False
 f.yaxis.visible = False
+f.xgrid.visible = False
+f.ygrid.visible = False
 app_data['pore_plt'] = f
 
 layout = row(
