@@ -11,7 +11,8 @@ body {
     display: inline-block;
 }
 .adjust-drop, .filter-drop, .export-drop,
-.position-drop, .navigation-drop{
+.position-drop, .navigation-drop, .bulkfile-help-drop,
+.filter-help-drop, .adjust-help-drop{
     display: none;
 }
 .caret-down > div{
@@ -33,7 +34,7 @@ body {
     padding-bottom: 3px;
     padding-left: 5px;
 }
-.position-drop code {
+.help-text code {
     font-weight: bold;
     margin: 0 0;
 }
@@ -65,4 +66,14 @@ body {
 }
 .jump-block {
     margin-top: -10px;
+}
+.help-text {
+    margin-top: 0;
+    margin-bottom: -10px;
+}
+.adjust-help-drop {
+    margin-top: 0;
+}
+.position-dropdown {
+    margin-bottom: 0;
 }

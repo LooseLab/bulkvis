@@ -10,7 +10,7 @@ import numpy as np
 import pandas as pd
 from bokeh.layouts import row, widgetbox
 from bokeh.models import TextInput, Toggle, Div, Range1d, Label, Span, Title
-from bokeh.models import CheckboxGroup, Dropdown, PreText, Select, Button
+from bokeh.models import CheckboxGroup, Dropdown, PreText, Select, Button, ColumnDataSource
 from bokeh.plotting import curdoc, figure
 from stitch import export_read_file
 
@@ -19,6 +19,8 @@ config.read(os.path.dirname(os.path.realpath(__file__)) + '/config.ini')
 cfg_po = config['plot_opts']
 cfg_dr = config['data']
 cfg_lo = config['labels']
+
+output_backend = set(['canvas', 'svg', 'webgl'])
 
 
 def init_wdg_dict():
@@ -214,15 +216,14 @@ def update_data(bulkfile, app_vars):
     # get annotations
     path = bulkfile["IntermediateData"][app_vars['channel_str']]["Reads"]
     fields = ['read_id', 'read_start', 'modal_classification']
-    app_data['label_df'], app_data['label_dt'] = get_annotations(path, fields)
-
+    app_data['label_df'], app_data['label_dt'] = get_annotations(path, fields, 'modal_classification')
     app_data['label_df'] = app_data['label_df'].drop_duplicates(subset="read_id", keep="first")
     app_data['label_df'].read_start = app_data['label_df'].read_start / app_vars['sf']
     app_data['label_df'].read_id = app_data['label_df'].read_id.str.decode('utf8')
 
     path = bulkfile["StateData"][app_vars['channel_str']]["States"]
     fields = ['analysis_raw_index', 'summary_state']
-    state_label_df, state_label_dtypes = get_annotations(path, fields)
+    state_label_df, state_label_dtypes = get_annotations(path, fields, 'summary_state')
     state_label_df.analysis_raw_index = state_label_df.analysis_raw_index / app_vars['sf']
     state_label_df = state_label_df.rename(
         columns={'analysis_raw_index': 'read_start', 'summary_state': 'modal_classification'}
@@ -232,21 +233,15 @@ def update_data(bulkfile, app_vars):
     app_data['label_dt'].update(state_label_dtypes)
 
 
-def get_annotations(path, fields):
-    """
-    Given a path to a hdf5 data set and a list of fields, return a
-    :param path: path to hdf5 dataset eg: file[path][to][dataset]
-    :param fields: list of fields in the dataset eg: ['list', 'of', 'fields'], at least one field should have an enum
-    :return: pandas df of fields and dictionary of enumerated
-    """
+def get_annotations(path, fields, enum_field):
     data_labels = {}
     for field in fields:
-        if h5py.check_dtype(enum=path.dtype[field]):
-            dataset_dtype = h5py.check_dtype(enum=path.dtype[field])
-            # data_dtype may lose some dataset dtypes there are duplicates of 'v'
-            data_dtypes = {v: k for k, v in dataset_dtype.items()}
         data_labels[field] = path[field]
-
+    data_dtypes = {}
+    if h5py.check_dtype(enum=path.dtype[enum_field]):
+        dataset_dtype = h5py.check_dtype(enum=path.dtype[enum_field])
+        # data_dtype may lose some dataset dtypes there are duplicates of 'v'
+        data_dtypes = {v: k for k, v in dataset_dtype.items()}
     labels_df = pd.DataFrame(data=data_labels)
     return labels_df, data_dtypes
 
@@ -300,7 +295,7 @@ def build_widgets():
 
     wdg['export_label'] = Div(text='Export data:', css_classes=['export-dropdown', 'help-text'])
     wdg['export_text'] = Div(
-        text="""Export data, as a read file, from the current squiggle shown. These are output to the output directory 
+        text="""Export data, as a read file, from the current squiggle shown. These are written to the output directory 
                 specified in your config file.
                 """,
         css_classes=['export-drop']
@@ -311,6 +306,13 @@ def build_widgets():
         css_classes=[]
     )
     wdg['bulkfile_info'] = Div(text='Bulkfile info', css_classes=['bulkfile-dropdown', 'caret-down'])
+    wdg['bulkfile_help'] = Div(text='Bulkfile help:', css_classes=['bulkfile-help-dropdown', 'help-text', 'bulkfile-drop'])
+    wdg['bulkfile_help_text'] = Div(
+        text="""Export data, as a read file, from the current squiggle shown. These are written to the output directory 
+                specified in your config file.
+                """,
+        css_classes=['bulkfile-help-drop']
+    )
     wdg['bulkfile_text'] = Div(
         text="""<b>Experiment:</b> <br><code>{exp}</code><br>
                 <b>Flowcell ID:</b> <br><code>{fc_id}</code><br>
@@ -333,6 +335,13 @@ def build_widgets():
         css_classes=['bulkfile-drop']
     )
     wdg['label_options'] = Div(text='Select annotations', css_classes=['filter-dropdown', 'caret-down'])
+    wdg['filter_help'] = Div(text='filter help:', css_classes=['filter-help-dropdown', 'help-text', 'filter-drop'])
+    wdg['filter_help_text'] = Div(
+        text="""Export data, as a read file, from the current squiggle shown. These are written to the output directory 
+                specified in your config file.
+                """,
+        css_classes=['filter-help-drop']
+    )
     wdg['toggle_annotations'] = Toggle(
         label="Display annotations",
         button_type="danger",
@@ -340,7 +349,15 @@ def build_widgets():
         active=True
     )
     wdg['label_filter'] = CheckboxGroup(labels=check_labels, active=check_active, css_classes=['filter-drop'])
+    
     wdg['plot_options'] = Div(text='Plot Adjustments', css_classes=['adjust-dropdown', 'caret-down'])
+    wdg['adjust_help'] = Div(text='adjust help:', css_classes=['adjust-help-dropdown', 'help-text', 'adjust-drop'])
+    wdg['adjust_help_text'] = Div(
+        text="""Export data, as a read file, from the current squiggle shown. These are written to the output directory 
+                specified in your config file.
+                """,
+        css_classes=['adjust-help-drop']
+    )
     wdg['po_width'] = TextInput(title='Plot Width (px)', value=cfg_po['plot_width'], css_classes=['adjust-drop'])
     wdg['po_height'] = TextInput(title='Plot Height (px)', value=cfg_po['plot_height'], css_classes=['adjust-drop'])
     wdg['label_height'] = TextInput(
@@ -399,21 +416,35 @@ def create_figure(x_data, y_data, wdg, app_vars):
     x_data = np.delete(x_data, lesser_delete_index)
     y_data = np.delete(y_data, lesser_delete_index)
 
+    data = {
+        'x': x_data[::thin_factor],
+        'y': y_data[::thin_factor],
+        # 'labels': [''],
+        # 'y_labels': ['']
+    }
+
+    source = ColumnDataSource(data=data)
+
     p = figure(
         plot_height=int(wdg['po_height'].value),
         plot_width=int(wdg['po_width'].value),
         toolbar_location="right",
         tools=['xpan', 'xbox_zoom', 'undo', 'reset', 'save'],
         active_drag="xpan",
-        title="{ch} Raw Output at {sf} samples per second".format(
+    )
+    if cfg_po['output_backend'] not in output_backend:
+        p.output_backend = 'canvas'
+    else:
+        p.output_backend = cfg_po['output_backend']
+    p.add_layout(Title(
+        text="{ch} Raw Output at {sf} samples per second".format(
             ch=app_vars['channel_str'],
             sf=app_vars['sf']
-        )
+        )),
+        'above'
     )
-
     p.add_layout(Title(
-        text="{s}".format(s=app_data['bulkfile']["UniqueGlobalKey"]["tracking_id"].attrs["sample_id"].decode('utf8')),
-        text_font_style="italic"),
+        text="{s}".format(s=app_data['wdg_dict']["file_list"].value)),
         'above'
     )
 
@@ -421,7 +452,7 @@ def create_figure(x_data, y_data, wdg, app_vars):
     p.yaxis.axis_label = "Current (pA)"
     p.yaxis.major_label_orientation = "horizontal"
     p.xaxis.axis_label = "Time (seconds)"
-    p.line(x_data[::thin_factor], y_data[::thin_factor], line_width=1)
+    p.line(source=source, x='x', y='y', line_width=1)
 
     if wdg['toggle_y_axis'].active:
         p.y_range = Range1d(int(wdg['po_y_min'].value), int(wdg['po_y_max'].value))
@@ -457,8 +488,8 @@ def create_figure(x_data, y_data, wdg, app_vars):
                     angle=-300
                 )
                 p.add_layout(labels)
-    p.x_range.on_change('start', range_update)
-    p.x_range.on_change('end', range_update)
+    # p.x_range.on_change('start', range_update)
+    # p.x_range.on_change('end', range_update)
     return p
 
 
