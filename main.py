@@ -20,6 +20,16 @@ cfg_po = config['plot_opts']
 cfg_dr = config['data']
 cfg_lo = config['labels']
 
+
+"""
+
+PUT IN A CHECK THAT REQUIRED CFG PARAMS ARE SET!!!!
+
+if cfg_dr[out] == '':
+    disable read-file write function <- remove button
+
+"""
+
 output_backend = {'canvas', 'svg', 'webgl'}
 
 
@@ -101,39 +111,50 @@ def open_bulkfile(path):
     sf = int(file["UniqueGlobalKey"]["context_tags"].attrs["sample_frequency"].decode('utf8'))
     # make channel_list
     channel_list = np.arange(1, len(file["Raw"]) + 1, 1).tolist()
+    # Make meta data here better
+    # app_data['metadata'] = OrderedDict()
     try:
+        # Experiment
         app_data['app_vars']['exp'] = file["UniqueGlobalKey"]["tracking_id"].attrs["sample_id"].decode('utf8')
     except KeyError:
         app_data['app_vars']['exp'] = "NA"
     try:
+        # Flowcell ID
         app_data['app_vars']['fc_id'] = file["UniqueGlobalKey"]["tracking_id"].attrs["flow_cell_id"].decode('utf8')
     except KeyError:
         app_data['app_vars']['fc_id'] = "NA"
     try:
+        # MinKNOW version
         app_data['app_vars']['mk_ver'] = file["UniqueGlobalKey"]["tracking_id"].attrs["version"].decode('utf8')
     except KeyError:
         app_data['app_vars']['mk_ver'] = "NA"
     try:
+        # MinION ID
         app_data['app_vars']['m_id'] = file["UniqueGlobalKey"]["tracking_id"].attrs["device_id"].decode('utf8')
     except KeyError:
         app_data['app_vars']['m_id'] = "NA"
     try:
+        # Hostname
         app_data['app_vars']['hn'] = file["UniqueGlobalKey"]["tracking_id"].attrs["hostname"].decode('utf8')
     except KeyError:
         app_data['app_vars']['hn'] = "NA"
     try:
+        # Sequencing kit
         app_data['app_vars']['sk'] = file["UniqueGlobalKey"]["context_tags"].attrs["sequencing_kit"].decode('utf8')
     except KeyError:
         app_data['app_vars']['sk'] = "NA"
     try:
+        # Flowcell type
         app_data['app_vars']['fc_t'] = file["UniqueGlobalKey"]["context_tags"].attrs["flowcell_type"].decode('utf8')
     except KeyError:
         app_data['app_vars']['fc_t'] = "NA"
     try:
+        # ASIC ID
         app_data['app_vars']['asic'] = file["UniqueGlobalKey"]["tracking_id"].attrs["asic_id"].decode('utf8')
     except KeyError:
         app_data['app_vars']['asic'] = "NA"
     try:
+        # Experiment start
         app_data['app_vars']['exp_d'] = parser.parse(
             file["UniqueGlobalKey"]["tracking_id"].attrs["exp_start_time"].decode('utf8')).strftime(
             '%d-%b-%Y %H:%M:%S')
@@ -225,11 +246,11 @@ def update_data(bulkfile, app_vars):
     app_data['label_df'].read_id = app_data['label_df'].read_id.str.decode('utf8')
 
     path = bulkfile["StateData"][app_vars['channel_str']]["States"]
-    fields = ['analysis_raw_index', 'summary_state']
+    fields = ['acquisition_raw_index', 'summary_state']
     state_label_df, state_label_dtypes = get_annotations(path, fields, 'summary_state')
-    state_label_df.analysis_raw_index = state_label_df.analysis_raw_index / app_vars['sf']
+    state_label_df.acquisition_raw_index = state_label_df.acquisition_raw_index / app_vars['sf']
     state_label_df = state_label_df.rename(
-        columns={'analysis_raw_index': 'read_start', 'summary_state': 'modal_classification'}
+        columns={'acquisition_raw_index': 'read_start', 'summary_state': 'modal_classification'}
     )
     app_data['label_df'] = app_data['label_df'].append(state_label_df, ignore_index=True)
     app_data['label_df'].sort_values(by='read_start', ascending=True, inplace=True)
@@ -279,11 +300,14 @@ def build_widgets():
     check_active = []
     app_data['label_mp'] = {}
     for k, v in enumerate(app_data['label_dt'].items()):
-        app_data['label_mp'][v[0]] = k
-        check_labels.append(v[1])
-        if cfg_lo[v[1]] == 'True':
-            check_active.append(k)
-            jump_list.append((v[1], str(v[0])))
+        if v[1] in cfg_lo:
+            app_data['label_mp'][v[0]] = k
+            check_labels.append(v[1])
+            if cfg_lo[v[1]] == 'True':
+                check_active.append(k)
+                jump_list.append((v[1], str(v[0])))
+        else:
+            print("label {v} is in your bulk-file but not defined in config.ini".format(v=v[1]))
 
     wdg = app_data['wdg_dict']
     wdg['duration'] = PreText(text="Duration: {d} seconds".format(d=app_data['app_vars']['duration']), css_classes=['duration_pre'])
@@ -372,12 +396,6 @@ def build_widgets():
     )
     wdg['po_y_max'] = TextInput(title="y max", value=cfg_po['y_max'], css_classes=['adjust-drop'])
     wdg['po_y_min'] = TextInput(title="y min", value=cfg_po['y_min'], css_classes=['adjust-drop'])
-    wdg['toggle_x_axis'] = Toggle(
-        label="Fix x-axis to {n} seconds".format(n=cfg_po['x_width']),
-        button_type="danger",
-        css_classes=['toggle_button_g_r', 'adjust-drop'],
-        active=False
-    )
     wdg['toggle_y_axis'] = Toggle(
         label="Fixed Y-axis",
         button_type="danger",
@@ -385,9 +403,9 @@ def build_widgets():
         active=False
     )
     wdg['toggle_smoothing'] = Toggle(
-        label="Toggle smoothing",
+        label="Smoothing",
         button_type="danger",
-        css_classes=['toggle_button_o_r', 'adjust-drop'],
+        css_classes=['toggle_button_g_r', 'adjust-drop'],
         active=True
     )
 
@@ -458,41 +476,39 @@ def create_figure(x_data, y_data, wdg, app_vars):
     p.yaxis.major_label_orientation = "horizontal"
     p.xaxis.axis_label = "Time (seconds)"
     p.line(source=source, x='x', y='y', line_width=1)
+    p.xaxis.major_label_orientation = math.radians(45)
+    p.x_range.range_padding = 0.01
 
     if wdg['toggle_y_axis'].active:
         p.y_range = Range1d(int(wdg['po_y_min'].value), int(wdg['po_y_max'].value))
-
-    if wdg['toggle_x_axis'].active:
-        p.x_range = Range1d(app_vars['start_time'], app_vars['start_time'] + int(cfg_po['x_width']))
-
-    p.xaxis.major_label_orientation = math.radians(45)
 
     if wdg['toggle_annotations'].active:
         slim_label_df = app_data['label_df'][
             (app_data['label_df']['read_start'] >= app_vars['start_time']) &
             (app_data['label_df']['read_start'] <= app_vars['end_time'])
-        ]
+            ]
         for index, label in slim_label_df.iterrows():
-            if app_data['label_mp'][label.modal_classification] in wdg['label_filter'].active:
-                event_line = Span(
-                    location=label.read_start,
-                    dimension='height',
-                    line_color='green',
-                    line_dash='dashed',
-                    line_width=1
-                )
-                p.add_layout(event_line)
-                labels = Label(
-                    x=label.read_start,
-                    y=int(wdg['label_height'].value),
-                    text="{cl} - {ri}".format(cl=app_data['label_dt'][label.modal_classification], ri=label.read_id),
-                    level='glyph',
-                    x_offset=0,
-                    y_offset=0,
-                    render_mode='canvas',
-                    angle=-300
-                )
-                p.add_layout(labels)
+            if label.modal_classification in app_data['label_mp']:
+                if app_data['label_mp'][label.modal_classification] in wdg['label_filter'].active:
+                    event_line = Span(
+                        location=label.read_start,
+                        dimension='height',
+                        line_color='green',
+                        line_dash='dashed',
+                        line_width=1
+                    )
+                    p.add_layout(event_line)
+                    labels = Label(
+                        x=label.read_start,
+                        y=int(wdg['label_height'].value),
+                        text="{cl} - {ri}".format(cl=app_data['label_dt'][label.modal_classification], ri=label.read_id),
+                        level='glyph',
+                        x_offset=0,
+                        y_offset=0,
+                        render_mode='canvas',
+                        angle=-300
+                    )
+                    p.add_layout(labels)
     # p.x_range.on_change('start', range_update)
     # p.x_range.on_change('end', range_update)
     return p
@@ -648,7 +664,7 @@ app_data = {
 }
 
 int_inputs = ['po_width', 'po_height', 'po_y_min', 'po_y_max', 'label_height']
-toggle_inputs = ['toggle_x_axis', 'toggle_y_axis', 'toggle_annotations', 'toggle_smoothing']
+toggle_inputs = ['toggle_y_axis', 'toggle_annotations', 'toggle_smoothing']
 
 app_data['app_vars']['files'] = []
 p = Path(cfg_dr['dir'])
