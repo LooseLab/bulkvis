@@ -4,3 +4,6 @@
 *.gcx
 cfg.py
 todo
+main2.py
+__pycache__/*
+config.ini
