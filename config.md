@@ -4,6 +4,7 @@ The config file contains the default options for running bulkVis. There are
 three sections: `data`, `plot_opts`, and `labels`.
 
 `[data]` describes the directories used by bulkVis
+
 |Option|Type|Description|
 |-:|:-:|:-|
 |`data`|string|Path to the bulk-fast5 file directory|
