@@ -1,7 +1,6 @@
 import h5py
 from argparse import ArgumentParser, ArgumentTypeError
 import configparser
-import sys
 
 
 def get_args():
@@ -24,6 +23,18 @@ def get_args():
                          required=True,
                          metavar=''
                          )
+    in_args.add_argument("-i", "--input-dir",
+                         help="The directory containing bulk-files for visualisation",
+                         type=str,
+                         required=True,
+                         metavar=""
+                         )
+    in_args.add_argument("-e", "--export-dir",
+                         help="The directory where read-files will be written by bulkvis",
+                         type=str,
+                         required=True,
+                         metavar=""
+                         )
     out_args = parser.add_argument_group(
         title='Output'
     )
@@ -35,6 +46,7 @@ def get_args():
     out_args.add_argument('-c', '--config',
                           help='''Specify a config file to write the labels to. This will 
                                   overwrite any current label configuration in this file.''',
+                          default='config.ini',
                           type=str,
                           metavar=''
                           )
@@ -79,18 +91,32 @@ for i, channel in enumerate(state_data_path):
     break
 int_labels = set(int_labels.keys())
 state_labels = set(state_labels.keys())
-# concat sets here
-# Move STDOUT to end of file
+labels = int_labels.union(state_labels)
+config = configparser.ConfigParser()
+config['data'] = {
+    'dir': args.input_dir,
+    'out': args.export_dir
+}
+config['plot_opts'] = {
+    'wdg_width': 300,
+    'plot_width': 980,
+    'plot_height': 800,
+    'y_min': 0,
+    'y_max': 2200,
+    'label_height': 800,
+    'upper_cut_off': 2200,
+    'lower_cut_off': -1000,
+    'output_backend': 'canvas',
+}
+config['labels'] = {}
+for label in labels:
+    config['labels'][label] = str(args.flag)
 if args.standard:
-    for label in int_labels:
-        print(label)
-    for label in state_labels:
-        print(label)
+    for thing in config:
+        print('[{t}]'.format(t=thing))
+        for t in config[thing]:
+            print('{t} = {v}'.format(t=t, v=config[thing][t]))
 
 if args.config:
-    """
-    Open config file
-    check and preserve all sections other than 'labels'
-    clear labels
-    write from sets to labels using -f for state
-    """
+    with open(args.config, 'w') as configfile:
+        config.write(configfile)
