@@ -458,14 +458,16 @@ def create_figure(x_data, y_data, wdg, app_vars):
     else:
         p.output_backend = cfg_po['output_backend']
     p.add_layout(Title(
-        text="{ch} Raw Output at {sf} samples per second".format(
-            ch=app_vars['channel_str'],
+        text="Channel: {ch} Start: {st} End: {ed} Sample rate {sf}".format(
+            ch=app_vars['channel_num'],
+            st=app_vars['start_time'],
+            ed=app_vars['end_time'],
             sf=app_vars['sf']
         )),
         'above'
     )
     p.add_layout(Title(
-        text="{s}".format(s=app_data['wdg_dict']["file_list"].value)),
+        text="Bulk-file: {s}".format(s=app_data['wdg_dict']["file_list"].value)),
         'above'
     )
 
