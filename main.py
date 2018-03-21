@@ -12,7 +12,7 @@ from bokeh.layouts import row, widgetbox
 from bokeh.models import TextInput, Toggle, Div, Range1d, Label, Span, Title
 from bokeh.models import CheckboxGroup, Dropdown, PreText, Select, Button, ColumnDataSource
 from bokeh.plotting import curdoc, figure
-from stitch import export_read_file
+from utils.stitch import export_read_file
 
 config = configparser.ConfigParser()
 config.read(Path(Path(__file__).resolve().parent / 'config.ini'))
@@ -111,8 +111,6 @@ def open_bulkfile(path):
     sf = int(file["UniqueGlobalKey"]["context_tags"].attrs["sample_frequency"].decode('utf8'))
     # make channel_list
     channel_list = np.arange(1, len(file["Raw"]) + 1, 1).tolist()
-    # Make meta data here better
-    # app_data['metadata'] = OrderedDict()
     try:
         # Experiment
         app_data['app_vars']['exp'] = file["UniqueGlobalKey"]["tracking_id"].attrs["sample_id"].decode('utf8')
@@ -472,7 +470,7 @@ def create_figure(x_data, y_data, wdg, app_vars):
     )
 
     p.toolbar.logo = None
-    p.yaxis.axis_label = "Current (pA)"
+    p.yaxis.axis_label = "Raw signal"
     p.yaxis.major_label_orientation = "horizontal"
     p.xaxis.axis_label = "Time (seconds)"
     p.line(source=source, x='x', y='y', line_width=1)
