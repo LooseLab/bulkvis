@@ -6,32 +6,26 @@ import pandas as pd
 
 def main():
     args = get_args()
-    if args.debug:
-        debug(args)
-
+    # Open sequencing summary file
     sequencing_summary = args.summary
     ss_fields = ['channel', 'start_time', 'duration', 'run_id', 'read_id', 'sequence_length_template', 'filename']
     ss = pd.read_csv(sequencing_summary, sep='\t', usecols=ss_fields)
     ss = ss.sort_values(by=['channel', 'run_id', 'start_time'])
     ss['diff'] = ss['start_time'].shift(-1) - (ss['start_time'] + ss['duration'])
-    # quickly put next read_id on as another column
+    # Add new columns using next row values
     ss['next_read_id'] = ss['read_id'].shift(-1)
     ss['next_start_time'] = ss['start_time'].shift(-1)
     ss['end_time'] = ss['start_time'] + ss['duration']
     ss['next_end'] = ss['next_start_time'] + ss['duration'].shift(-1)
     ss['next_sequence_length_template'] = ss['sequence_length_template'].shift(-1)
     ss['combined_length'] = ss['sequence_length_template'] + ss['next_sequence_length_template']
+    # Fill blanks with zeros
     ss['next_sequence_length_template'] = ss['next_sequence_length_template'].fillna(0).astype('int64')
     ss['combined_length'] = ss['combined_length'].fillna(0).astype('int64')
-
-    stats = OrderedDict()
-    stats['Sequencing summary entries:'] = len(ss)
-    stats['Original N50:'] = n50(ss['sequence_length_template'])
-
+    # Open paf file
     paf_file = args.paf
     pf = pd.read_csv(paf_file, sep='\t', header=None, usecols=[0, 4, 5, 7, 8])
     pf.columns = ['Qname', 'Strand', 'Tname', 'Tstart', 'Tend']
-    # ['Qname', 'Qlength', 'Qstart', 'Qend', 'strand', 'Tname', 'Tlength', 'Tstart', 'Tend', 'Nmatch', 'Nbase', 'Quality']
     """
     0		Query sequence name
     1x		Query sequence length
@@ -46,15 +40,17 @@ def main():
     10x		Number bases, including gaps, in the mapping
     11x		Mapping quality (0-255 with 255 for missing)
     """
+    # Merge sequencing summary and paf file twice: first on read_id, then on the following read id
     df = pd.merge(ss, pf, left_on='read_id', right_on='Qname', how='outer')
     df2 = pd.merge(df, pf, left_on='next_read_id', right_on='Qname', how='outer', suffixes=("_A", "_B"))
     df2 = df2.dropna().reset_index()
 
     not_qname = df2['Qname_A'] != df2['Qname_B']
-    yes_strand = df2['Strand_A'] == df2['Strand_B']
-    yes_tname = df2['Tname_A'] == df2['Tname_B']
+    is_strand = df2['Strand_A'] == df2['Strand_B']
+    is_tname = df2['Tname_A'] == df2['Tname_B']
 
-    df2 = df2[not_qname & yes_strand & yes_tname]
+    # Thin merged df2 where Qname doesn't match AND Strand matches AND Tname matches
+    df2 = df2[not_qname & is_strand & is_tname]
     df2['match_distance'] = np.where(
         df2['Strand_A'] == '+',             # condition
         df2['Tstart_B'] - df2['Tend_A'],    # True
@@ -62,14 +58,12 @@ def main():
     )
     df2 = df2[df2['match_distance'] > 0]
     df2 = df2[df2['match_distance'] < args.distance]
-    # print(len(df2))
     df2 = df2.drop_duplicates(subset=['channel', 'start_time', 'duration',
                                       'next_start_time', 'diff', 'read_id',
                                       'next_read_id', 'sequence_length_template',
                                       'next_sequence_length_template', 'combined_length'],
                               keep='first'
                               )
-    # print(len(df2))
 
     cond_1 = df2['next_read_id'] == df2['read_id'].shift(-1)
     cond_2 = df2['read_id'] == df2['next_read_id'].shift(-1)
@@ -113,47 +107,10 @@ def main():
     # ss3 is to-be-fused reads
     ss3 = ss[ss['read_id'].isin(chained_read_ids) == True]
     ss4 = ss3[ss3['read_id'].isin(df2['read_id']) == False]
+
     ss4.to_csv("to_be_fused.txt", sep="\t", header=True, columns=['channel', 'read_id', 'run_id', 'start_time'], index=False)
     ss2.to_csv("un_fused.txt", sep="\t", header=True, columns=['channel', 'read_id', 'run_id', 'start_time'], index=False)
     df2.to_csv("just_fused.txt", sep="\t", header=True, columns=['channel', 'read_id', 'run_id', 'start_time'], index=False)
-    # print(len(ss3))
-
-    new_n50 = pd.concat([ss2['sequence_length_template'], df2['combined_length']])
-    stats['New N50:'] = n50(new_n50)
-    stats['Reads joined:'] = len(chained_read_ids)
-    stats['To be fused N50:'] = n50(ss3['sequence_length_template'])
-    stats['Fused read N50:'] = n50(df2['combined_length'])
-    stats['Un-fused reads N50:'] = n50(ss2['sequence_length_template'])
-    stats['Un-fused reads:'] = len(ss2)
-    stats['Fused reads:'] = len(df2)
-
-    # print(ss2.keys())
-
-    max_len = max([len(k) for k, v in stats.items()])
-    for k, v in stats.items():
-        print('{k:{m}}\t{v}'.format(k=k, m=max_len, v=v))
-
-    # Begin export here
-    if args.debug:
-        df2.to_csv('debug.csv', sep=",", index=False)
-
-
-def n50(lengths):
-    """
-    Calculate N50 from a list of lengths
-    :param lengths: list of lengths as ints
-    :return: N50 as an int
-    """
-    length_dict = {'length': lengths}
-    df = pd.DataFrame(length_dict)
-    df = df.sort_values(by='length')
-    df['cum_sum'] = df.length.cumsum()
-    length_sum = df.length.sum()
-    reads_n50 = int(df.length.where(df.cum_sum > length_sum / 2).dropna().iloc[0])
-    reads_mean = int(df['length'].mean())
-    reads_min = df['length'].min()
-    reads_max = df['length'].max()
-    return reads_min, reads_max, reads_mean, reads_n50
 
 
 def get_args():
@@ -175,11 +132,6 @@ def get_args():
                          type=int,
                          default=10000,
                          metavar=''
-                         )
-    general.add_argument("-D", "--debug",
-                         help='''Write debug file''',
-                         action="store_true",
-                         default=False,
                          )
     in_args = parser.add_argument_group(
         title='Input sources'
@@ -216,13 +168,6 @@ def get_args():
                           metavar=''
                           )
     return parser.parse_args()
-
-
-def debug(args):
-    dirs = dir(args)
-    for attr in dirs:
-        if attr[0] != '_':
-            print(f'{attr:<15} {getattr(args, attr)}')
 
 
 if __name__ == '__main__':

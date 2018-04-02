@@ -35,18 +35,9 @@ $ pip install -r requirements.txt
 
 Configuration
 =============
-bulkvis uses some user defined parameter to set default plot options. These can change depending on your preferences.
-To set the parameters:
-
-```INI
-[plot_opts]
-wdg_width = 300
-plot_width = 970
-plot_height = 800
-y_min = 0
-y_max = 2200
-x_width = 15
-```
+bulkvis uses some user defined parameter to set default plot options. 
+These can change depending on your preferences. For a comprehensive overview
+of the config file see [config.md](config.md)
 
 Launch the app
 ==============

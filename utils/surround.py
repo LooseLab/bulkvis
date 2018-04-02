@@ -2,7 +2,6 @@ import h5py
 import pandas as pd
 import numpy as np
 from collections import defaultdict, Counter
-import matplotlib.pyplot as plt
 from argparse import ArgumentParser
 import sys
 
@@ -104,17 +103,6 @@ def main():
     k_df = prepare_data(args.summary_3, args.time, bulkfile, args.verbose, sf, run_id)
     k_df.to_csv("un_fused_prop.csv", sep=",", header=True)
 
-    # fig, axes = plt.subplots(nrows=3, sharex=True)
-    # i = i_df.plot(ax=axes[0], kind="bar", stacked=True)
-    # j = j_df.plot(ax=axes[1], kind="bar", stacked=True)
-    # k = k_df.plot(ax=axes[2], kind="bar", stacked=True)
-    # # handles, labels = fig.get_legend_handles_labels()
-    # plt.legend(loc='lower center', ncol=2, mode="expand", borderaxespad=0.)
-    # # fig.legend(handles, labels, loc='lower center', ncol=2, mode="expand", borderaxespad=0.)
-    # # plt.figlegend(lines, labels, loc=8, ncol=5, labelspacing=0.)
-    # # plt.get_cmap('nipy_spectral')
-    # plt.show()
-
 
 def get_args():
     parser = ArgumentParser(
@@ -163,7 +151,7 @@ def get_args():
                          metavar=''
                          )
     general.add_argument("-t", "--time",
-                         help='± time around a strand event''',
+                         help='''plus/minus time around a strand event''',
                          type=int,
                          required=True,
                          default=5,

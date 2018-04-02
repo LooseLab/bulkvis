@@ -239,7 +239,14 @@ def update_data(bulkfile, app_vars):
     path = bulkfile["IntermediateData"][app_vars['channel_str']]["Reads"]
     fields = ['read_id', 'read_start', 'modal_classification']
     app_data['label_df'], app_data['label_dt'] = get_annotations(path, fields, 'modal_classification')
-    app_data['label_df'] = app_data['label_df'].drop_duplicates(subset="read_id", keep="first")
+    # print("Labels:")
+    # print("Original df:\t", len(app_data['label_df']))
+    # d1 = len(app_data['label_df'].drop_duplicates(subset=['read_id'], keep="first"))
+    # print("Drop on one:\t", d1)
+    # d2 = len(app_data['label_df'].drop_duplicates(subset=['read_id', 'modal_classification'], keep="first"))
+    # print("Drop on two:\t", d2)
+    # print("Difference  \t", d2-d1)
+    app_data['label_df'] = app_data['label_df'].drop_duplicates(subset=['read_id', 'modal_classification'], keep="first")
     app_data['label_df'].read_start = app_data['label_df'].read_start / app_vars['sf']
     app_data['label_df'].read_id = app_data['label_df'].read_id.str.decode('utf8')
 
@@ -298,14 +305,15 @@ def build_widgets():
     check_active = []
     app_data['label_mp'] = {}
     for k, v in enumerate(app_data['label_dt'].items()):
+        app_data['label_mp'][v[0]] = k
+        check_labels.append(v[1])
         if v[1] in cfg_lo:
-            app_data['label_mp'][v[0]] = k
-            check_labels.append(v[1])
             if cfg_lo[v[1]] == 'True':
                 check_active.append(k)
                 jump_list.append((v[1], str(v[0])))
         else:
             print("label {v} is in your bulk-file but not defined in config.ini".format(v=v[1]))
+            check_active.append(k)
 
     wdg = app_data['wdg_dict']
     wdg['duration'] = PreText(text="Duration: {d} seconds".format(d=app_data['app_vars']['duration']), css_classes=['duration_pre'])
@@ -440,8 +448,6 @@ def create_figure(x_data, y_data, wdg, app_vars):
     data = {
         'x': x_data[::thin_factor],
         'y': y_data[::thin_factor],
-        # 'labels': [''],
-        # 'y_labels': ['']
     }
 
     source = ColumnDataSource(data=data)
@@ -457,8 +463,9 @@ def create_figure(x_data, y_data, wdg, app_vars):
         p.output_backend = 'canvas'
     else:
         p.output_backend = cfg_po['output_backend']
+    # Add step/% points plotted: Step: {sp} ({pt:.3f}) -> sp=thin_factor, pt=1/thin_factor
     p.add_layout(Title(
-        text="Channel: {ch} Start: {st} End: {ed} Sample rate {sf}".format(
+        text="Channel: {ch} Start: {st} End: {ed} Sample rate: {sf}".format(
             ch=app_vars['channel_num'],
             st=app_vars['start_time'],
             ed=app_vars['end_time'],
@@ -483,6 +490,7 @@ def create_figure(x_data, y_data, wdg, app_vars):
         p.y_range = Range1d(int(wdg['po_y_min'].value), int(wdg['po_y_max'].value))
 
     if wdg['toggle_annotations'].active:
+        # Here labels are thinned out
         slim_label_df = app_data['label_df'][
             (app_data['label_df']['read_start'] >= app_vars['start_time']) &
             (app_data['label_df']['read_start'] <= app_vars['end_time'])
@@ -509,8 +517,6 @@ def create_figure(x_data, y_data, wdg, app_vars):
                         angle=-300
                     )
                     p.add_layout(labels)
-    # p.x_range.on_change('start', range_update)
-    # p.x_range.on_change('end', range_update)
     return p
 
 
