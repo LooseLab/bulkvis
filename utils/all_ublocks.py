@@ -18,6 +18,8 @@ def main():
     state_fields = ['acquisition_raw_index', 'summary_state']
     labels_df_list = []
     ch_count = 1
+    print("Run ID:")
+    print(run_id)
     print("Collecting state data:")
     for channel in tqdm(path):
         state_path = path[channel]['States']
@@ -26,22 +28,23 @@ def main():
             ch_count += 1
         labels_df_list.append(get_df(state_path, state_fields))
 
-    unblocks_df = pd.concat(labels_df_list)
+    events_df = pd.concat(labels_df_list)
     # slim df to just 'unblocking'
-    unblocks_df = unblocks_df[unblocks_df['summary_state'] == dtypes['unblocking']]
-    unblocks_df['acquisition_raw_index'] = unblocks_df['acquisition_raw_index'] / sf
+    events_df = events_df[events_df['summary_state'] == dtypes[args.event]]
+    events_df['acquisition_raw_index'] = events_df['acquisition_raw_index'] / sf
     # open summary files
     ss_fields = ['read_id', 'run_id', 'start_time']
 
-    singles_out = pd.DataFrame({'Singles': parse_summary(args.singles, ss_fields, unblocks_df, run_id, args.time)})
+    singles_out = pd.DataFrame({'Singles': parse_summary(args.singles, ss_fields, events_df, run_id, args.time)})
     singles_out.to_csv(args.singles_out, sep=',', index=False)
 
-    split_out = pd.DataFrame({'Split read start': parse_summary(args.split, ss_fields, unblocks_df, run_id, args.time)})
+    split_out = pd.DataFrame({'Split read start': parse_summary(args.split, ss_fields, events_df, run_id, args.time)})
     split_out.to_csv(args.split_out, sep=',', index=False)
 
-    internal_out = pd.DataFrame({'Internal read start': parse_summary(args.internal, ss_fields, unblocks_df, run_id, args.time)})
+    internal_out = pd.DataFrame({'Internal read start': parse_summary(args.internal, ss_fields, events_df, run_id, args.time)})
     internal_out.to_csv(args.internal_out, sep=',', index=False)
-    # unblocks_df.to_csv('unblock.csv', sep=',', index=False)
+    all_out = args.event + '.csv'
+    events_df.to_csv(all_out, sep=',', index=False)
 
     """
     This script is flawed because it counts unblocks multiple times if
@@ -68,7 +71,6 @@ def parse_summary(summary_file, fields, state_df, run_id, time):
                 inclusive=True
             )]['acquisition_raw_index'] - row['start_time']).values
         )
-    # df = pd.DataFrame({'distance': vals})
     return vals
 
 
@@ -86,7 +88,7 @@ def get_df(path, fields):
 
 def get_args():
     parser = ArgumentParser(
-        description="""Put this in later...""",
+        description="""Find all the occurrences of a given event across an entire bulkfile""",
         add_help=False)
     general = parser.add_argument_group(
         title='General options')
@@ -125,6 +127,13 @@ def get_args():
                          required=True,
                          metavar=''
                          )
+    in_args.add_argument("-e", "--event",
+                         help="The event, from \'StateData\', to find. Defaults to \'unblocking\'.",
+                         type=str,
+                         default='unblocking',
+                         required=False,
+                         metavar=''
+                         )
     in_args.add_argument("-t", "--time",
                          help='Sample time around a read start in seconds. Defaults to 5 seconds''',
                          type=int,
@@ -142,19 +151,19 @@ def get_args():
                           metavar=''
                           )
     out_args.add_argument("-1", "--split-out",
-                          help='Name CSV file where output is written''',
+                          help='Name CSV file where split output is written''',
                           type=str,
                           default='split.csv',
                           metavar=''
                           )
     out_args.add_argument("-2", "--internal-out",
-                          help='Name CSV file where output is written''',
+                          help='Name CSV file where internal output is written''',
                           type=str,
                           default='internal.csv',
                           metavar=''
                           )
     out_args.add_argument("-3", "--singles-out",
-                          help='Name CSV file where output is written''',
+                          help='Name CSV file where singles output is written''',
                           type=str,
                           default='singles.csv',
                           metavar=''
