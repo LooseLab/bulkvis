@@ -76,7 +76,6 @@ def update_file(attr, old, new):
     raw_path = app_data['bulkfile']["Raw"]
     for i, member in enumerate(raw_path):
         if i == 0:
-            print("∆")
             signal_ds = raw_path[member]["Signal"][()]
             # get dataset length in seconds
             # app_data['app_vars']['len_ds'] = math.ceil(len(signal_ds) / app_data['app_vars']['sf'])
@@ -248,7 +247,6 @@ def update_data(bulkfile, app_vars):
     # get data in numpy arrays
     step = 1 / app_vars['sf']
     app_data['x_data'] = np.arange(app_vars['start_time'], app_vars['end_time'], step)
-    print("ß")
     app_data['y_data'] = bulkfile["Raw"][app_vars['channel_str']]["Signal"][()]
     app_vars['len_ds'] = len(app_data['y_data']) / app_vars['sf']
     app_data['y_data'] = app_data['y_data'][app_vars['start_squiggle']:app_vars['end_squiggle']]
