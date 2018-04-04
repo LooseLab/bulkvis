@@ -9,3 +9,6 @@ __pycache__/*
 utils/__pycache__/*
 config.ini
 *.ini
+docs/_build
+docs/_static
+docs/_template

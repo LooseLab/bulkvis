@@ -7,14 +7,14 @@ def main():
     args = get_args()
     if args.debug:
         debug(args)
-    fused_df, ss, fused_read_ids = fuse_reads(args)
+    fused_df, ss, fused_read_ids = fuse_reads(args.summary, args.paf, args.distance, args.top, args.debug)
     header = ['coords', 'filename', 'channel', 'start_time',
               'duration', 'combined_length', 'target_name', 'strand',
               'start_match', 'end_match', 'cat_read_id', 'count']
     fused_df.to_csv(args.out_fused, sep="\t", header=True, columns=header, index=False)
     print("Fused read summary file saved as {f}".format(f=args.out_fused))
         
-def fuse_reads(summary, paf, distance, debug):
+def fuse_reads(summary, paf, distance, top_N, debug):
     sequencing_summary = summary
     ss_fields = ['channel', 'start_time', 'duration', 'run_id', 'read_id', 'sequence_length_template', 'filename']
     ss = pd.read_csv(sequencing_summary, sep='\t', usecols=ss_fields)
@@ -151,20 +151,10 @@ def fuse_reads(summary, paf, distance, debug):
     stats_df = stats_df[['MIN', 'MAX', 'MEAN', 'N50']]
     print(stats_df)
     print("")
-    print("Top ten original reads by length:")
-    top_n(ss, 'sequence_length_template', 10)
-    print("Top ten fused reads by combined length:")
-    top_n(df2, 'combined_length', 10)
-    print("Top ten un-fused reads by length:")
-    top_n(un_fused_df, 'sequence_length_template', 10)
-    """
-    Output top 10 reads by length for both original and fused datasets
-    fix start and end match for +/- strands
-    make sure all vals are int/float accordingly
-    'next_end', => 'end_time'
-    'difference', => 'duration'
-    'cat_read_id' => 
-    """
+    print("Top {n} original reads by length:".format(n=top_N))
+    top_n(ss, 'sequence_length_template', top_N)
+    print("Top {n} fused reads by combined length:".format(n=top_N))
+    top_n(df2, 'combined_length', top_N)
 
     if debug:
         df2.to_csv('debug.csv', sep=",", index=False)
@@ -220,7 +210,7 @@ def get_args():
                          metavar=''
                          )
     general.add_argument("-t", "--top",
-                         help='''Specify how many top''',
+                         help='''Specify how many top processed reads to display. Default is 10''',
                          type=int,
                          default=10,
                          metavar=''
