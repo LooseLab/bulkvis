@@ -76,6 +76,7 @@ def update_file(attr, old, new):
     raw_path = app_data['bulkfile']["Raw"]
     for i, member in enumerate(raw_path):
         if i == 0:
+            print("∆")
             signal_ds = raw_path[member]["Signal"][()]
             # get dataset length in seconds
             # app_data['app_vars']['len_ds'] = math.ceil(len(signal_ds) / app_data['app_vars']['sf'])
@@ -164,9 +165,19 @@ def open_bulkfile(path):
 
 # noinspection PyUnboundLocalVariable
 def parse_position(attr, old, new):
-    if new[0] == "@":
+    if re.match(r'^(\@[a-f0-9\-]{36})([a-z0-9=\s]{1,})ch=[0-9]{1,4}', new):
+        # https://regex101.com/r/9VvgNM/4
+        # Match UUID / read_id as fastq str
+        #   ^(\@[a-f0-9\-]{36})
+        # Match lowercase a-z, 0-9, '=' and whitespace
+        #   ([a-z0-9=\s]{1,})
+        # Match 'ch=' and up to 4 numbers
+        #   ch=[0-9]{1,4}
+        # if new[0] == "@":
+        input_error(app_data['wdg_dict']['position'], 'remove')
         fq = new[1:]
         fq_list = fq.split(" ")
+        # split out read_id and channel
         for k, item in enumerate(fq_list):
             if k == 0:
                 read_id = item
@@ -187,26 +198,31 @@ def parse_position(attr, old, new):
             df.read_id = df.read_id.str.decode('utf8')
             df = df.where(df.read_id == read_id)
             df = df.dropna()
-            # !!! check that multiple rows are still here
-            start_time = math.floor(df.iloc[0, :].read_start)
-            end_time = math.ceil(df.iloc[-1, :].read_start)
+            if len(df) > 2:
+                start_time = math.floor(df.iloc[0, :].read_start)
+                end_time = math.ceil(df.iloc[-1, :].read_start)
+            else:
+                input_error(app_data['wdg_dict']['position'], 'add')
+                return
+        else:
+            input_error(app_data['wdg_dict']['position'], 'add')
+            return
         app_data['wdg_dict']['position'].value = "{ch}:{start}-{end}".format(
             ch=channel_num,
             start=start_time,
             end=end_time
         )
-    elif re.match(r'^[0-9]{1,3}:[0-9]{1,9}-[0-9]{1,9}', new):
-        # https://regex101.com/r/zkN1j2/1
+    elif re.match(r'^([0-9]{1,4}:[0-9]{1,9}-[0-9]{1,9})\Z', new):
+        # https://regex101.com/r/zkN1j2/2
+        input_error(app_data['wdg_dict']['position'], 'remove')
         coords = new.split(":")
         times = coords[1].split("-")
         channel_num = coords[0]
         channel_str = "Channel_{num}".format(num=channel_num)
         (start_time, end_time) = times[0], times[1]
     else:
-        channel_str = None
-        channel_num = None
-        start_time = None
-        end_time = None
+        input_error(app_data['wdg_dict']['position'], 'add')
+        return
 
     if int(end_time) > app_data['app_vars']['len_ds']:
         end_time = app_data['app_vars']['len_ds']
@@ -232,6 +248,7 @@ def update_data(bulkfile, app_vars):
     # get data in numpy arrays
     step = 1 / app_vars['sf']
     app_data['x_data'] = np.arange(app_vars['start_time'], app_vars['end_time'], step)
+    print("ß")
     app_data['y_data'] = bulkfile["Raw"][app_vars['channel_str']]["Signal"][()]
     app_vars['len_ds'] = len(app_data['y_data']) / app_vars['sf']
     app_data['y_data'] = app_data['y_data'][app_vars['start_squiggle']:app_vars['end_squiggle']]
@@ -684,11 +701,11 @@ for index, file in enumerate(app_data['app_vars']['files']):
             try:
                 try_path[channel]["Signal"][0]
             except KeyError:
-                del app_data['app_vars']['files'][index]
+                app_data['app_vars']['files'][index] = None
         break
     bulk_file.flush()
     bulk_file.close()
-
+app_data['app_vars']['files'] = list(filter((None).__ne__, app_data['app_vars']['files']))
 app_data['app_vars']['files'].insert(0, ("", "--"))
 
 app_data['wdg_dict'] = init_wdg_dict()
