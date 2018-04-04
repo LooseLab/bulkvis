@@ -5,27 +5,38 @@ body {
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
     display: block;
-    margin: 0px;
+    margin: 0;
 }
 .bk-plot-layout{
     display: inline-block;
 }
-.adjust-drop, .filter-drop{
+.adjust-drop, .filter-drop, .export-drop,
+.position-drop, .navigation-drop, .bulkfile-help-drop,
+.filter-help-drop, .adjust-help-drop{
     display: none;
 }
-.adjust-dropdown, .filter-dropdown{
+.caret-down > div{
     font-weight: bold;
     color: blue;
     cursor: pointer;
     margin-top: 20px;
 }
-.adjust-dropdown.caret-down > div :after,
-.filter-dropdown.caret-down > div :after{
+.caret-down > div :after{
     content: ' \25BC';
 }
-.adjust-dropdown.caret-up > div :after,
-.filter-dropdown.caret-up > div :after{
-    content: ' \25B2';
+.help-text > div :after{
+    content: ' [?]';
+    display: inline-block;
+    font-weight: bold;
+    color: blue;
+    cursor: help;
+    right: 0;
+    padding-bottom: 3px;
+    padding-left: 5px;
+}
+.help-text code {
+    font-weight: bold;
+    margin: 0 0;
 }
 .select-opt{
     color: blue;
@@ -36,6 +47,7 @@ body {
 .bk-root .bk-widget-form-input{
     width: 100%;
     box-sizing: border-box;
+    display: inline-block;
 }
 .toggle_button_g_r > .bk-bs-btn.bk-bs-active {
     background-color: #5cb85c;
@@ -47,4 +59,21 @@ body {
 }
 .input-error > .bk-widget-form-input {
     background-color: #d9534f;
+}
+.duration_pre pre{
+    border-bottom: 1px solid black;
+    margin-top: -10px
+}
+.jump-block {
+    margin-top: -10px;
+}
+.help-text {
+    margin-top: 0;
+    margin-bottom: -10px;
+}
+.adjust-help-drop {
+    margin-top: 0;
+}
+.position-dropdown {
+    margin-bottom: 0;
 }
