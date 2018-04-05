@@ -127,6 +127,11 @@ def open_bulkfile(path):
     except KeyError:
         app_data['app_vars']['mk_ver'] = "NA"
     try:
+        # Protocols version
+        app_data['app_vars']['p_ver'] = file["UniqueGlobalKey"]["tracking_id"].attrs["protocols_version"].decode('utf8')
+    except KeyError:
+        app_data['app_vars']['p_ver'] = "NA"
+    try:
         # MinION ID
         app_data['app_vars']['m_id'] = file["UniqueGlobalKey"]["tracking_id"].attrs["device_id"].decode('utf8')
     except KeyError:
@@ -370,6 +375,7 @@ def build_widgets():
                 <b>Run ID:</b> <br><code>{run}</code><br>
                 <b>Flowcell ID:</b> <br><code>{fc_id}</code><br>
                 <b>MinKNOW version:</b> <br><code>{mk_ver}</code><br>
+                <b>Protocols version:</b> <br><code>{p_ver}</code><br>
                 <b>MinION ID:</b> <br><code>{m_id}</code><br>
                 <b>Hostname:</b> <br><code>{hn}</code><br>
                 <b>Sequencing kit:</b> <br><code>{sk}</code><br>
@@ -381,6 +387,7 @@ def build_widgets():
             run=app_data['app_vars']['run'],
             fc_id=app_data['app_vars']['fc_id'],
             mk_ver=app_data['app_vars']['mk_ver'],
+            p_ver=app_data['app_vars']['p_ver'],
             m_id=app_data['app_vars']['m_id'],
             hn=app_data['app_vars']['hn'],
             sk=app_data['app_vars']['sk'],
