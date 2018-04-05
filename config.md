@@ -35,8 +35,8 @@ can be used to populate the entire config file and add in labels...
 
 ```INI
 [data]
-dir = /Users/Alex/projects/bokehApp/bulkvis/data/
-out = /Users/Alex/projects/bokehApp/bulkvis/data/make/
+dir = /path/to/bulkfile/directory 
+out = /path/to/readfile/directory 
 [plot_opts]
 wdg_width = 300
 plot_width = 1600

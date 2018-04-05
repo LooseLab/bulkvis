@@ -147,6 +147,11 @@ def open_bulkfile(path):
     except KeyError:
         app_data['app_vars']['fc_t'] = "NA"
     try:
+        # run ID
+        app_data['app_vars']['run'] = file["UniqueGlobalKey"]["tracking_id"].attrs["run_id"].decode('utf8')
+    except KeyError:
+        app_data['app_vars']['run'] = "NA"
+    try:
         # ASIC ID
         app_data['app_vars']['asic'] = file["UniqueGlobalKey"]["tracking_id"].attrs["asic_id"].decode('utf8')
     except KeyError:
@@ -343,7 +348,7 @@ def build_widgets():
 
     wdg['export_label'] = Div(text='Export data:', css_classes=['export-dropdown', 'help-text'])
     wdg['export_text'] = Div(
-        text="""Export data, as a read file, from the current squiggle shown. These are written to the output directory 
+        text="""Export data, as a read file, from the current position. These are written to the output directory 
                 specified in your config file.
                 """,
         css_classes=['export-drop']
@@ -354,15 +359,15 @@ def build_widgets():
         css_classes=[]
     )
     wdg['bulkfile_info'] = Div(text='Bulkfile info', css_classes=['bulkfile-dropdown', 'caret-down'])
-    wdg['bulkfile_help'] = Div(text='Bulkfile help:', css_classes=['bulkfile-help-dropdown', 'help-text', 'bulkfile-drop'])
+    wdg['bulkfile_help'] = Div(text='Bulkfile info help:', css_classes=['bulkfile-help-dropdown', 'help-text', 'bulkfile-drop'])
     wdg['bulkfile_help_text'] = Div(
-        text="""Export data, as a read file, from the current squiggle shown. These are written to the output directory 
-                specified in your config file.
+        text="""This contains basic information about the experiment that is recorded in the bulk-fast5-file.
                 """,
         css_classes=['bulkfile-help-drop']
     )
     wdg['bulkfile_text'] = Div(
         text="""<b>Experiment:</b> <br><code>{exp}</code><br>
+                <b>Run ID:</b> <br><code>{run}</code><br>
                 <b>Flowcell ID:</b> <br><code>{fc_id}</code><br>
                 <b>MinKNOW version:</b> <br><code>{mk_ver}</code><br>
                 <b>MinION ID:</b> <br><code>{m_id}</code><br>
@@ -372,23 +377,24 @@ def build_widgets():
                 <b>ASIC ID:</b> <br><code>{asic}</code><br>
                 <b>Experiment start:</b> <br><code>{exp_d}</code>
                 """.format(
-        exp=app_data['app_vars']['exp'],
-        fc_id=app_data['app_vars']['fc_id'],
-        mk_ver=app_data['app_vars']['mk_ver'],
-        m_id=app_data['app_vars']['m_id'],
-        hn=app_data['app_vars']['hn'],
-        sk=app_data['app_vars']['sk'],
-        fc_t=app_data['app_vars']['fc_t'],
-        asic=app_data['app_vars']['asic'],
-        exp_d=app_data['app_vars']['exp_d']
+            exp=app_data['app_vars']['exp'],
+            run=app_data['app_vars']['run'],
+            fc_id=app_data['app_vars']['fc_id'],
+            mk_ver=app_data['app_vars']['mk_ver'],
+            m_id=app_data['app_vars']['m_id'],
+            hn=app_data['app_vars']['hn'],
+            sk=app_data['app_vars']['sk'],
+            fc_t=app_data['app_vars']['fc_t'],
+            asic=app_data['app_vars']['asic'],
+            exp_d=app_data['app_vars']['exp_d']
         ),
         css_classes=['bulkfile-drop']
     )
     wdg['label_options'] = Div(text='Select annotations', css_classes=['filter-dropdown', 'caret-down'])
     wdg['filter_help'] = Div(text='filter help:', css_classes=['filter-help-dropdown', 'help-text', 'filter-drop'])
     wdg['filter_help_text'] = Div(
-        text="""Export data, as a read file, from the current squiggle shown. These are written to the output directory 
-                specified in your config file.
+        text="""Select which bulkfile annotations should be rendered on the chart. 'Display annotations' will turn all 
+                annotations on or off.
                 """,
         css_classes=['filter-help-drop']
     )
@@ -403,8 +409,8 @@ def build_widgets():
     wdg['plot_options'] = Div(text='Plot Adjustments', css_classes=['adjust-dropdown', 'caret-down'])
     wdg['adjust_help'] = Div(text='adjust help:', css_classes=['adjust-help-dropdown', 'help-text', 'adjust-drop'])
     wdg['adjust_help_text'] = Div(
-        text="""Export data, as a read file, from the current squiggle shown. These are written to the output directory 
-                specified in your config file.
+        text="""Adjust chart parameters, such as width, height and where annotations are rendered. These are set in the
+                config.ini, where the default values can be edited.
                 """,
         css_classes=['adjust-help-drop']
     )
@@ -652,10 +658,6 @@ def export_data():
         app_data['wdg_dict']['duration'].text += "\nread file created"
     else:
         app_data['wdg_dict']['duration'].text += "\nError: read file not created"
-
-
-def range_update(attr, old, new):
-    app_data['app_vars'][attr] = new
 
 
 app_data = {
