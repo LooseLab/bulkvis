@@ -42,7 +42,7 @@ Output format
     "duration", "Time, in seconds, it took for the incorrectly split read to pass through the channel", "1,512.46425"
     "combined_length", "Number of bases in the combined reads", "611531"
     "target_name", "The mapping target, determined by minimap", "chr7"
-    "strand", "'+' if query and target on the same strand; '-' if opposite", "+"
+    "strand", "'+' if query and target on the same strand; '-' if opposite", "\+"
     "start_match", "Start coordinate on the original strand", "46731340"
     "end_match", "End coordinate on the original strand", "46791591"
     "cat_read_id", "Read ids of all the reads in this group", "82eed45a-7774-4778-8f8a-eb17d7010116|6e9c7720-b7a3-47cc-8f42-30e2219add4b"
