@@ -105,7 +105,7 @@ Smoothing will automatically turn on whenever the position is changed.
 
 .. figure:: _static/06_adjustments.png
     :class: figure
-    :alt: Screenshot of 'Plot adjusments' section of the sidebar showing inputs for width, height, annotation height, y max, and y min as well as buttons for 'Fixed Y-axis' and 'Smoothing'
+    :alt: Screenshot of 'Plot adjustments' section of the sidebar showing inputs for width, height, annotation height, y max, and y min as well as buttons for 'Fixed Y-axis' and 'Smoothing'
 
     Screenshot of the plot adjustments panel
 
