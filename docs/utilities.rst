@@ -35,18 +35,18 @@ Output format
 .. csv-table::
     :header: "Field", "Description", "Example"
 
-    "coords", "bulkvis position coordinates", "2:2264-2663"
-    "filename", "bulk-fast5-file name associated with the read", ""
-    "channel", "", ""
-    "start_time", "", ""
-    "duration", "", ""
-    "combined_length", "", ""
-    "target_name", "", ""
-    "strand", "", ""
-    "start_match", "", ""
-    "end_match", "", ""
-    "cat_read_id", "", ""
-    "count", "", ""
+    "coords", "bulkvis position coordinates", "231:30782-32296"
+    "run_id", "The run that these reads came from", "8093748fc82dc4c5cc441125d76432dd658c27c8"
+    "channel", "Channel that sequenced these reads", "231"
+    "start_time", "Time, in seconds, that the (first) incorrectly split read starting sequencing", "30782.8425"
+    "duration", "Time, in seconds, it took for the incorrectly split read to pass through the channel", "1,512.46425"
+    "combined_length", "Number of bases in the combined reads", "611531"
+    "target_name", "The mapping target, determined by minimap", "chr7"
+    "strand", "'+' if query and target on the same strand; '-' if opposite", "+"
+    "start_match", "Start coordinate on the original strand", "46731340"
+    "end_match", "End coordinate on the original strand", "46791591"
+    "cat_read_id", "Read ids of all the reads in this group", "82eed45a-7774-4778-8f8a-eb17d7010116|6e9c7720-b7a3-47cc-8f42-30e2219add4b"
+    "count", "Number of reads in this group", "2"
 
 
 whale_mate.py
