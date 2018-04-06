@@ -12,7 +12,7 @@ From the directory containing bulkvis, run::
 
 This will start the bulkvis app and open the page in your default web browser. The page should look like this:
 
-.. figure:: _static/01_initial.png
+.. figure:: _static/images/quickstart/01_initial.png
     :class: figure
     :alt: Screenshot of bulkvis showing a blank screen with a drop-down box in the top left corner
 
@@ -23,7 +23,7 @@ Selecting a bulk-fast5-file
 Use the drop-down to select a bulk-fast5-file from your supplied directory. Once the file is loaded the position can be
 entered.
 
-.. figure:: _static/02_position.png
+.. figure:: _static/images/quickstart/02_position.png
     :class: figure
     :alt: Screenshot of bulkvis showing, in the top left corner, a drop-down box with a file selected and a text box labeled position
 
@@ -54,7 +54,7 @@ This can be copied and pasted into the text-box e.g::
 
 After entering valid input the chart and other elements will load:
 
-.. figure:: _static/03_plot.png
+.. figure:: _static/images/quickstart/03_plot.png
     :class: figure
     :alt: Screenshot of bulkvis showing a 'squiggle' plot of raw nanopore signal and a left-hand sidebar containing information about the plot
 
@@ -74,7 +74,7 @@ Bulkfile information
 The bulkfile information panel showcases information that is present in the bulk-fast5-file that is not necessarily
 displayed in MinKNOW.
 
-.. figure:: _static/04_sidebar.png
+.. figure:: _static/images/quickstart/04_sidebar.png
     :class: figure
     :alt: Screenshot of the sidebar from bulkvis, showing the file selections drop-down, position input, jump-to buttons, export button, information panel, and two hidden sections ('Select annotations' and 'Plot adjustments')
 
@@ -88,7 +88,7 @@ computed by MinKNOW at specific time points in the experiment.
 Selecting a checkbox will allow that specific label to be rendered on the plot. The 'Display annotations' button will toggle
 all annotations on/off.
 
-.. figure:: _static/05_annotations.png
+.. figure:: _static/images/quickstart/05_annotations.png
     :class: figure
     :alt: Screenshot of 'Select annotations' section of sidebar showing a button labeled 'Display annotations' and a list of checkboxes
 
@@ -103,7 +103,7 @@ be fixed to a given range.
 Plot smoothing is on by default, as raw signal data can quickly become massive, this reduces the number of points plot but maintains the shape of the data.
 Smoothing will automatically turn on whenever the position is changed.
 
-.. figure:: _static/06_adjustments.png
+.. figure:: _static/images/quickstart/06_adjustments.png
     :class: figure
     :alt: Screenshot of 'Plot adjustments' section of the sidebar showing inputs for width, height, annotation height, y max, and y min as well as buttons for 'Fixed Y-axis' and 'Smoothing'
 
@@ -114,7 +114,7 @@ Exporting images
 bulkvis is able to export images of plots as below, this is done using the save function (|save_icon|) which will either download
 the current plot view as ``bokeh_plot.png`` or, in safari, open the image in a new tab where it can be saved by right clicking and selecting save.
 
-.. figure:: _static/07_plot.png
+.. figure:: _static/images/quickstart/07_plot.png
     :class: figure
     :alt: Example plot of raw signal data from an Oxford Nanopore bulk-fast5-file
 
@@ -125,7 +125,7 @@ Exporting read files
 bulkvis is able to export arbitrary read files from bulk-fast5-files. The data range is determined by the current position as set in the text input.
 When a read file is generated it is written to the folder set in the configuration file.
 
-.. figure:: _static/08_read_file.png
+.. figure:: _static/images/quickstart/08_read_file.png
     :class: figure
     :alt: Screenshot of bulkvis sidebar showing position, duration, 'read file created', jump buttons and export button
 
