@@ -413,7 +413,7 @@ def build_widgets():
     )
     wdg['label_filter'] = CheckboxGroup(labels=check_labels, active=check_active, css_classes=['filter-drop'])
     
-    wdg['plot_options'] = Div(text='Plot Adjustments', css_classes=['adjust-dropdown', 'caret-down'])
+    wdg['plot_options'] = Div(text='Plot adjustments', css_classes=['adjust-dropdown', 'caret-down'])
     wdg['adjust_help'] = Div(text='adjust help:', css_classes=['adjust-help-dropdown', 'help-text', 'adjust-drop'])
     wdg['adjust_help_text'] = Div(
         text="""Adjust chart parameters, such as width, height and where annotations are rendered. These are set in the
@@ -428,12 +428,12 @@ def build_widgets():
         value=cfg_po['label_height'],
         css_classes=['adjust-drop']
     )
-    wdg['po_y_max'] = TextInput(title="y max", value=cfg_po['y_max'], css_classes=['adjust-drop'])
-    wdg['po_y_min'] = TextInput(title="y min", value=cfg_po['y_min'], css_classes=['adjust-drop'])
+    wdg['po_y_max'] = TextInput(title="y max", value=cfg_po['y_max'], css_classes=['adjust-drop', 'toggle_y_target'])
+    wdg['po_y_min'] = TextInput(title="y min", value=cfg_po['y_min'], css_classes=['adjust-drop', 'toggle_y_target'])
     wdg['toggle_y_axis'] = Toggle(
         label="Fixed Y-axis",
         button_type="danger",
-        css_classes=['toggle_button_g_r', 'adjust-drop'],
+        css_classes=['toggle_button_g_r', 'adjust-drop', 'toggle_y_axis'],
         active=False
     )
     wdg['toggle_smoothing'] = Toggle(
@@ -699,10 +699,19 @@ toggle_inputs = ['toggle_y_axis', 'toggle_annotations', 'toggle_smoothing']
 app_data['app_vars']['files'] = []
 p = Path(cfg_dr['dir'])
 app_data['app_vars']['files'] = [(x.name, x.name) for x in p.iterdir() if x.suffix == '.fast5']
+# check files are useable by h5py
 for index, file in enumerate(app_data['app_vars']['files']):
     file = file[0]
-    bulk_file = h5py.File(Path(Path(cfg_dr['dir']) / file), 'r')
-    try_path = bulk_file["Raw"]
+    try:
+        bulk_file = h5py.File(Path(Path(cfg_dr['dir']) / file), 'r')
+    except OSError:
+        app_data['app_vars']['files'][index] = None
+        continue
+    try:
+        try_path = bulk_file["Raw"]
+    except KeyError:
+        app_data['app_vars']['files'][index] = None
+        continue
     for i, channel in enumerate(try_path):
         if i == 0:
             try:

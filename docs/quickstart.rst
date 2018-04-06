@@ -27,6 +27,8 @@ entered.
     :class: figure
     :alt: Screenshot of bulkvis showing, in the top left corner, a drop-down box with a file selected and a text box labeled position
 
+    Screenshot of bulkvis waiting for position information
+
 Selecting a position
 ====================
 The position can be selected by either supplying coordinates or a fastq read header. The contents of this input is submitted
@@ -56,7 +58,7 @@ After entering valid input the chart and other elements will load:
     :class: figure
     :alt: Screenshot of bulkvis showing a 'squiggle' plot of raw nanopore signal and a left-hand sidebar containing information about the plot
 
-
+    Screenshot of bulkvis fully loaded with both plot and sidebar
 
 Navigating
 ==========
@@ -76,25 +78,62 @@ displayed in MinKNOW.
     :class: figure
     :alt: Screenshot of the sidebar from bulkvis, showing the file selections drop-down, position input, jump-to buttons, export button, information panel, and two hidden sections ('Select annotations' and 'Plot adjustments')
 
-Screenshot of sidebar
+    Screenshot of bulkvis sidebar
 
 Annotations
 ===========
-How to use annotations ...
+Annotations are added to the plot based on state data and intermediate data from the bulkfile. These represent the label
+computed by MinKNOW at specific time points in the experiment.
+
+Selecting a checkbox will allow that specific label to be rendered on the plot. The 'Display annotations' button will toggle
+all annotations on/off.
+
+.. figure:: _static/05_annotations.png
+    :class: figure
+    :alt: Screenshot of 'Select annotations' section of sidebar showing a button labeled 'Display annotations' and a list of checkboxes
+
+    Screenshot of the annotation selection panel
 
 Plot adjustments
 ================
-What plot adjustments can be made
+The plot adjustments are infrequently used options that are for tweaking the appearance of the plot without having to modify the configuration file.
+Here the width and height of the plot can be set to match the current screen, the height that annotations are rendered at can be adjusted, and the Y-axis can
+be fixed to a given range.
 
-Exporting read files
-====================
-How to export read files and where they are written
+Plot smoothing is on by default, as raw signal data can quickly become massive, this reduces the number of points plot but maintains the shape of the data.
+Smoothing will automatically turn on whenever the position is changed.
+
+.. figure:: _static/06_adjustments.png
+    :class: figure
+    :alt: Screenshot of 'Plot adjusments' section of the sidebar showing inputs for width, height, annotation height, y max, and y min as well as buttons for 'Fixed Y-axis' and 'Smoothing'
+
+    Screenshot of the plot adjustments panel
 
 Exporting images
 ================
-How to export images of plots, this is browser dependent...
+bulkvis is able to export images of plots as below, this is done using the save function (|save_icon|) which will either download
+the current plot view as ``bokeh_plot.png`` or, in safari, open the image in a new tab where it can be saved by right clicking and selecting save.
+
+.. figure:: _static/07_plot.png
+    :class: figure
+    :alt: Example plot of raw signal data from an Oxford Nanopore bulk-fast5-file
+
+    Example plot from bulkvis
+
+Exporting read files
+====================
+bulkvis is able to export arbitrary read files from bulk-fast5-files. The data range is determined by the current position as set in the text input.
+When a read file is generated it is written to the folder set in the configuration file.
+
+.. figure:: _static/08_read_file.png
+    :class: figure
+    :alt: Screenshot of bulkvis sidebar showing position, duration, 'read file created', jump buttons and export button
+
+    Screenshot of export button and success message (below 'duration')
 
 .. |zoom_icon| image:: /_static/icons/zoom.png
     :height: 11pt
 .. |xpan_icon| image:: /_static/icons/xpan.png
+    :height: 11pt
+.. |save_icon| image:: /_static/icons/save.png
     :height: 11pt
