@@ -134,6 +134,7 @@ def fuse_reads(summary, paf, distance, top_N, debug):
     split_df = ss[ss['read_id'].isin(fused_read_ids) == True]
 
     new_n50 = pd.concat([un_fused_df['sequence_length_template'], df2['combined_length']])
+    new_N50_df = pd.DataFrame(data={"length":new_n50})
     stats['Un-fused reads:'] = len(un_fused_df)
     stats['Reads joined:'] = len(fused_read_ids)
     stats['Fused reads:'] = len(df2)
@@ -155,6 +156,8 @@ def fuse_reads(summary, paf, distance, top_N, debug):
     top_n(ss, 'sequence_length_template', top_N)
     print("Top {n} fused reads by combined length:".format(n=top_N))
     top_n(df2, 'combined_length', top_N)
+    print ("Top {n} reads after correction:".format(n=top_N))
+    top_n(new_N50_df, 'length', top_N)
 
     if debug:
         df2.to_csv('debug.csv', sep=",", index=False)
