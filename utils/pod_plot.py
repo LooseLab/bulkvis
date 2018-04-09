@@ -31,8 +31,6 @@ def create_figure(ch, s, e, sf, file, filename):
     x_data = np.arange(s, e, step)
     y_data = file["Raw"][ch_str]["Signal"][()]
     y_data = y_data[sq:eq]
-    start_time = sq / sf
-    end_time = eq / sf
     d = math.e ** 2.5
     thin_factor = math.ceil(n / d)
     greater_delete_index = np.argwhere(y_data > 1500)
@@ -56,8 +54,8 @@ def create_figure(ch, s, e, sf, file, filename):
     p.add_layout(Title(
         text="Channel: {ch} Start: {st} End: {ed} Sample rate: {sf}".format(
             ch=ch,
-            st=start_time,
-            ed=end_time,
+            st=s,
+            ed=e,
             sf=sf
         )),
         'above'
@@ -94,7 +92,7 @@ def create_figure(ch, s, e, sf, file, filename):
     label_df.sort_values(by='read_start', ascending=True, inplace=True)
     label_dt.update(state_label_dtypes)
     # Here labels are thinned out
-    slim_label_df = label_df[(label_df['read_start'] >= start_time) & (label_df['read_start'] <= end_time)]
+    slim_label_df = label_df[(label_df['read_start'] >= s) & (label_df['read_start'] <= e)]
     for index, label in slim_label_df.iterrows():
         event_line = Span(
             location=label.read_start,
