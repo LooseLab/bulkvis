@@ -90,6 +90,7 @@ def prepare_data(summary_file, interval_time, bulkfile, v, sf, run_id):
         print(df)
     return df
 
+
 def main():
     args = get_args()
     bulkfile = h5py.File(args.bulk_file, "r")
