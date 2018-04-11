@@ -1,5 +1,6 @@
 import h5py
 import pandas as pd
+import sys
 
 
 def export_read_file(channel, start_index, end_index, bulkfile, output_dir):
@@ -94,3 +95,8 @@ def export_read_file(channel, start_index, end_index, bulkfile, output_dir):
 
     readfile.close()
     return 0
+
+
+if __name__ == "__main__":
+    print("Sorry, stitch.py is not designed to be run directly.")
+    sys.exit()
