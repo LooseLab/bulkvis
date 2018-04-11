@@ -39,7 +39,7 @@ class ReadTracker():
 
 def main():
     args = get_args()
-    df2, ss, chained_read_ids = fuse_reads(args.summary, args.paf, args.distance, 10, False)
+    df2, ss, chained_read_ids = fuse_reads(args.summary, args.paf, args.distance, 10, True, False)
     read_dict = {}
 
     #open file for writing

@@ -8,7 +8,7 @@ def main():
     args = get_args()
     if args.debug:
         debug(args)
-    fused_df, ss, fused_read_ids = fuse_reads(args.summary, args.paf, args.distance, args.top, args.debug)
+    fused_df, ss, fused_read_ids = fuse_reads(args.summary, args.paf, args.distance, args.top, args.alt, args.debug)
     header = ['coords', 'run_id', 'channel', 'start_time',
               'duration', 'combined_length', 'target_name', 'strand',
               'start_match', 'end_match', 'cat_read_id', 'count']
@@ -16,7 +16,7 @@ def main():
     fused_df.to_csv(p, sep="\t", header=True, columns=header, index=False)
     print("Fused read summary file saved as {f}".format(f=args.out_fused))
         
-def fuse_reads(summary, paf, distance, top_N, debug):
+def fuse_reads(summary, paf, distance, top_N, alt, debug):
     sequencing_summary = summary
     ss_fields = ['channel', 'start_time', 'duration', 'run_id', 'read_id', 'sequence_length_template', 'filename']
     ss = pd.read_csv(sequencing_summary, sep='\t', usecols=ss_fields)
@@ -84,9 +84,12 @@ def fuse_reads(summary, paf, distance, top_N, debug):
     df2['COND'] = np.where(cond_1 | cond_2, True, False)
     df2['W'] = np.where(df2['COND'].shift(1) == False, 1, 0)
     df2['cs'] = df2['W'].cumsum()
-    df2 = df2.set_index(['cs', 'Tname_B'])
-    # set the grouping
-    df2_groupby = df2.groupby(level=['cs', 'Tname_B'])
+    if alt:
+        groupby_list = ['cs', 'Tname_B']
+    else:
+        groupby_list = ['cs']
+    df2 = df2.set_index(groupby_list)
+    df2_groupby = df2.groupby(level=groupby_list)
     # group and concatenate read ids
     df2['all_but_last'] = df2_groupby['read_id'].apply('|'.join)
     df2['last_read_id'] = df2_groupby['next_read_id'].last()
@@ -139,11 +142,7 @@ def fuse_reads(summary, paf, distance, top_N, debug):
     stats['Reads joined:'] = len(fused_read_ids)
     stats['Fused reads:'] = len(df2)
     stats['New read count:'] = stats['Un-fused reads:'] + stats['Fused reads:']
-    stats['Total fused bases:'] = np.sum(df2['combined_length'])
-    stats['Total unfused bases:'] = np.sum(un_fused_df['sequence_length_template'])
-    stats['Total bases:'] = np.sum(new_n50)
-    stats['Original total bases:'] = np.sum(ss['sequence_length_template'])
-    stats['Bases difference:'] = stats['Total bases:'] - stats['Original total bases:']
+    stats['Total bases:'] = np.sum(ss['sequence_length_template'])
     stats_n50['Un-fused reads N50:'] = n50(un_fused_df['sequence_length_template'])
     stats_n50['To be fused N50:'] = n50(split_df['sequence_length_template'])
     stats_n50['Fused read N50:'] = n50(df2['combined_length'])
@@ -152,11 +151,11 @@ def fuse_reads(summary, paf, distance, top_N, debug):
     max_len = max([len(k) for k, v in stats.items()])
     for k, v in stats.items():
         print('{k:{m}}\t{v}'.format(k=k, m=max_len, v=v))
-    # print("")
-    # stats_df = pd.DataFrame(stats_n50).T
-    # stats_df = stats_df[['MIN', 'MAX', 'MEAN', 'N50']]
-    # print(stats_df)
-    # print("")
+    print("")
+    stats_df = pd.DataFrame(stats_n50).T
+    stats_df = stats_df[['MIN', 'MAX', 'MEAN', 'N50']]
+    print(stats_df)
+    top_N = abs(top_N)
     if top_N > 0:
         print("Top {n} original reads by length:".format(n=top_N))
         top_n(ss, 'sequence_length_template', top_N)
@@ -225,8 +224,13 @@ def get_args():
                          default=10,
                          metavar=''
                          )
+    general.add_argument("-a", "--alt",
+                         help='''Exclude alternate assemblies''',
+                         action="store_false",
+                         default=True,
+                         )
     general.add_argument("-D", "--debug",
-                         help='''Write debug file''',
+                         help='''Write debug.csv file to current working directory''',
                          action="store_true",
                          default=False,
                          )
