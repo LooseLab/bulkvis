@@ -542,7 +542,8 @@ def create_figure(x_data, y_data, wdg, app_vars):
                         x_offset=0,
                         y_offset=0,
                         render_mode='canvas',
-                        angle=-300
+                        angle=-270,
+                        angle_units='deg'
                     )
                     p.add_layout(labels)
     return p
