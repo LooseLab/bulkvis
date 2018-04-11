@@ -2,6 +2,7 @@ from argparse import ArgumentParser
 from collections import OrderedDict
 import numpy as np
 import pandas as pd
+from pathlib import Path
 
 def main():
     args = get_args()
@@ -11,7 +12,8 @@ def main():
     header = ['coords', 'run_id', 'channel', 'start_time',
               'duration', 'combined_length', 'target_name', 'strand',
               'start_match', 'end_match', 'cat_read_id', 'count']
-    fused_df.to_csv(args.out_fused, sep="\t", header=True, columns=header, index=False)
+    p = Path(args.out_fused)
+    fused_df.to_csv(p, sep="\t", header=True, columns=header, index=False)
     print("Fused read summary file saved as {f}".format(f=args.out_fused))
         
 def fuse_reads(summary, paf, distance, top_N, debug):
@@ -83,26 +85,23 @@ def fuse_reads(summary, paf, distance, top_N, debug):
     df2['W'] = np.where(df2['COND'].shift(1) == False, 1, 0)
     df2['cs'] = df2['W'].cumsum()
     df2 = df2.set_index(['cs', 'Tname_B'])
+    # set the grouping
+    df2_groupby = df2.groupby(level=['cs', 'Tname_B'])
     # group and concatenate read ids
-    df2['all_but_last'] = df2.groupby(level=['cs', 'Tname_B'])['read_id'].apply('|'.join)
-    df2['last_read_id'] = df2.groupby(level=['cs', 'Tname_B'])['next_read_id'].last()
+    df2['all_but_last'] = df2_groupby['read_id'].apply('|'.join)
+    df2['last_read_id'] = df2_groupby['next_read_id'].last()
     df2['cat_read_id'] = df2['all_but_last'] + "|" + df2['last_read_id']
     # group and combine length
-    df2['combined_length'] = df2.groupby(level=['cs', 'Tname_B'])['sequence_length_template'].sum()
-    df2['last_length'] = df2.groupby(level=['cs', 'Tname_B'])['next_sequence_length_template'].last()
+    df2['combined_length'] = df2_groupby['sequence_length_template'].sum()
+    df2['last_length'] = df2_groupby['next_sequence_length_template'].last()
     df2['combined_length'] = df2['combined_length'] + df2['last_length']
-    # group and add start of mapping and end of mapping
     # take max/min for end/start match from grouped value list
-    df2['i_start_match'] = df2.groupby(level=['cs', 'Tname_B'])['Tstart_A'].first()
-    df2['j_start_match'] = df2.groupby(level=['cs', 'Tname_B'])['Tstart_B'].first()
-    df2['i_end_match'] = df2.groupby(level=['cs', 'Tname_B'])['Tend_A'].last()
-    df2['j_end_match'] = df2.groupby(level=['cs', 'Tname_B'])['Tend_B'].last()
-    df2['start_match'] = np.minimum(df2['i_start_match'], df2['j_start_match'])
-    df2['end_match'] = np.maximum(df2['i_end_match'], df2['j_end_match'])
+    df2['start_match'] = df2_groupby[['Tstart_A', 'Tstart_B', 'Tend_A', 'Tend_B']].transform('min').min(axis=1)
+    df2['end_match'] = df2_groupby[['Tstart_A', 'Tstart_B', 'Tend_A', 'Tend_B']].transform('max').max(axis=1)
 
     # group and add start and end times
-    df2['start_time'] = df2.groupby(level=['cs', 'Tname_B'])['start_time'].first()
-    df2['next_end'] = df2.groupby(level=['cs', 'Tname_B'])['next_end'].last()
+    df2['start_time'] = df2_groupby['start_time'].first()
+    df2['next_end'] = df2_groupby['next_end'].last()
     # add the duration (time between start and end)
     df2['duration'] = df2['next_end'] - df2['start_time']
     # format and add coordinates
@@ -119,7 +118,7 @@ def fuse_reads(summary, paf, distance, top_N, debug):
     # fused_read_ids is a pd.Series of all fused reads
     fused_read_ids = pd.concat([df2['read_id'], df2['next_read_id']])
 
-    df2['count'] = df2.groupby(level=['cs', 'Tname_B'])['read_id'].size() + 1
+    df2['count'] = df2_groupby['read_id'].size() + 1
 
     # remove duplicate entries from df2
     df2 = df2.drop_duplicates(subset=['coords', 'channel', 'start_time',
@@ -144,6 +143,7 @@ def fuse_reads(summary, paf, distance, top_N, debug):
     stats['Total unfused bases:'] = np.sum(un_fused_df['sequence_length_template'])
     stats['Total bases:'] = np.sum(new_n50)
     stats['Original total bases:'] = np.sum(ss['sequence_length_template'])
+    stats['Bases difference:'] = stats['Total bases:'] - stats['Original total bases:']
     stats_n50['Un-fused reads N50:'] = n50(un_fused_df['sequence_length_template'])
     stats_n50['To be fused N50:'] = n50(split_df['sequence_length_template'])
     stats_n50['Fused read N50:'] = n50(df2['combined_length'])
@@ -152,17 +152,18 @@ def fuse_reads(summary, paf, distance, top_N, debug):
     max_len = max([len(k) for k, v in stats.items()])
     for k, v in stats.items():
         print('{k:{m}}\t{v}'.format(k=k, m=max_len, v=v))
-    print("")
-    stats_df = pd.DataFrame(stats_n50).T
-    stats_df = stats_df[['MIN', 'MAX', 'MEAN', 'N50']]
-    print(stats_df)
-    print("")
-    print("Top {n} original reads by length:".format(n=top_N))
-    top_n(ss, 'sequence_length_template', top_N)
-    print("Top {n} fused reads by combined length:".format(n=top_N))
-    top_n(df2, 'combined_length', top_N)
-    print("Top {n} reads after correction:".format(n=top_N))
-    top_n(new_N50_df, 'length', top_N)
+    # print("")
+    # stats_df = pd.DataFrame(stats_n50).T
+    # stats_df = stats_df[['MIN', 'MAX', 'MEAN', 'N50']]
+    # print(stats_df)
+    # print("")
+    if top_N > 0:
+        print("Top {n} original reads by length:".format(n=top_N))
+        top_n(ss, 'sequence_length_template', top_N)
+        print("Top {n} fused reads by combined length:".format(n=top_N))
+        top_n(df2, 'combined_length', top_N)
+        print("Top {n} reads after correction:".format(n=top_N))
+        top_n(new_N50_df, 'length', top_N)
 
     if debug:
         df2.to_csv('debug.csv', sep=",", index=False)
