@@ -118,7 +118,9 @@ def create_figure(ch, s, e, sf, file, filename):
 
 def get_args():
     parser = ArgumentParser(
-        description="""Generate plots for all reads in a fused_reads.txt file""",
+        description="""Generate plots for all reads in a fused_reads.txt file. 
+        This uses bokeh to render a plot and requires selenium, phantomjs, and 
+        pillow to be installed. These are available via conda/pip.""",
         add_help=False)
     general = parser.add_argument_group(
         title='General options')
