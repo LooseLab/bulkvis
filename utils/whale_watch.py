@@ -121,7 +121,7 @@ def fuse_reads(summary, paf, distance, top_N, alt, debug):
     # fused_read_ids is a pd.Series of all fused reads
     fused_read_ids = pd.concat([df2['read_id'], df2['next_read_id']])
 
-    df2['count'] = df2_groupby['read_id'].size() + 1
+    df2['count'] = df2_groupby.size() + 1
 
     # remove duplicate entries from df2
     df2 = df2.drop_duplicates(subset=['coords', 'channel', 'start_time',
@@ -166,7 +166,7 @@ def fuse_reads(summary, paf, distance, top_N, alt, debug):
 
     if debug:
         df2.to_csv('debug.csv', sep=",", index=False)
-    
+
     return df2, ss, fused_read_ids
 
 

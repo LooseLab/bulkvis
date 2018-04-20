@@ -139,10 +139,11 @@ def main():
                                 print("we should have found this")
                                 sys.exit()
                             myreadtracker.unfusedseen()
-                            file.write(read_dict[read_id]['header']+"\n")
-                            file.write(read_dict[read_id]['fasta']+"\n")
-                            file.write(read_dict[read_id]['divide']+"\n")
-                            file.write(read_dict[read_id]['quality']+"\n")
+                            if args.W:
+                                file.write(read_dict[read_id]['header']+"\n")
+                                file.write(read_dict[read_id]['fasta']+"\n")
+                                file.write(read_dict[read_id]['divide']+"\n")
+                                file.write(read_dict[read_id]['quality']+"\n")
                             read_dict.pop(read_id,None)
                             pass
                     line = fp.readline()
@@ -154,9 +155,8 @@ def main():
 
 def get_args():
     parser = ArgumentParser(
-        description="""Parse sequencing_summary.txt files 
-                       and .paf files to find chained reads 
-                       in an Oxford Nanopore Dataset""",
+        description="""Parse sequencing_summary.txt files and .paf files to find chained reads 
+                       in an Oxford Nanopore Dataset and output fused fastq files""",
         add_help=False)
     general = parser.add_argument_group(
         title='General options')
@@ -190,7 +190,7 @@ def get_args():
                          metavar=''
                          )
     in_args.add_argument("-f", "--readfiles",
-                         help="Full path to the folder containing fastq files you wish to join.",
+                         help="Full path to the folder containing fastq files you wish to join",
                          type=str,
                          default='',
                          required=True,
@@ -203,6 +203,12 @@ def get_args():
                                Defaults to \'fused_reads.fastq\'''',
                           type=str,
                           default='fused_reads.fastq',
+                          metavar=''
+                          )
+    out_args.add_argument('-W',
+                          help='''Outputs just the fused reads''',
+                          action="store_false",
+                          default=True,
                           metavar=''
                           )
     return parser.parse_args()
