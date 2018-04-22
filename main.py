@@ -15,7 +15,7 @@ from bokeh.plotting import curdoc, figure
 from utils.stitch import export_read_file
 
 config = configparser.ConfigParser()
-config.read(Path(Path(__file__).resolve().parent / 'config.ini'))
+config.read(str(Path(Path(__file__).resolve().parent / 'config.ini')))
 cfg_po = config['plot_opts']
 cfg_dr = config['data']
 cfg_lo = config['labels']
