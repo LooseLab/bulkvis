@@ -10,10 +10,10 @@ def main():
     args = get_args()
     # open bulkfile
     bulkfile = h5py.File(args.bulk_file, "r")
-    # get bulkfile run_id and sample_frequency
+    # get bulkfile sample_frequency
     sf = int(bulkfile["UniqueGlobalKey"]["context_tags"].attrs["sample_frequency"].decode('utf8'))
+    # get bulkfile run_id
     run_id = bulkfile["UniqueGlobalKey"]["tracking_id"].attrs["run_id"].decode('utf8')
-    # collect all unblocks across all channels with start time
     path = bulkfile['StateData']
     state_fields = ['acquisition_raw_index', 'summary_state']
     labels_df_list = []
@@ -21,13 +21,16 @@ def main():
     print("Run ID:")
     print(run_id)
     print("Collecting state data:")
-    for channel in tqdm(path):
+    # collect all unblocks across all channels with start time
+    for channel in path:
         state_path = path[channel]['States']
         while ch_count == 1:
             dtypes = get_dtypes(state_path, 'summary_state')
             ch_count += 1
+        # create list of DataFrames
         labels_df_list.append(get_df(state_path, state_fields))
 
+    # concat all df together
     events_df = pd.concat(labels_df_list)
     # slim df to just 'unblocking'
     events_df = events_df[events_df['summary_state'] == dtypes[args.event]]
