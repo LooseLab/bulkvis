@@ -1,8 +1,5 @@
 import h5py
-import numpy as np
 import pandas as pd
-from collections import defaultdict
-import matplotlib.pyplot as plt
 from argparse import ArgumentParser
 
 def get_annotations(path, fields, enum_field):
