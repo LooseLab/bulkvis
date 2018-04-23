@@ -206,10 +206,9 @@ def get_args():
                           metavar=''
                           )
     out_args.add_argument('-W',
-                          help='''Outputs just the fused reads''',
+                          help='Outputs just the fused reads',
                           action="store_false",
                           default=True,
-                          metavar=''
                           )
     return parser.parse_args()
 
