@@ -114,7 +114,7 @@ def fuse_reads(summary, paf, distance, top_N, alt, debug):
     df2['combined_length'] = df2['combined_length'].astype('int64')
     df2['start_match'] = df2['start_match'].astype('int64').astype('str')
     df2['end_match'] = df2['end_match'].astype('int64').astype('str')
-    df2['duration'] = df2['duration'].map('{:,.5f}'.format)
+    df2['duration'] = df2['duration'].map('{:.5f}'.format)
     df2['coords'] = df2['channel'] + ":" + df2['stime_floor'] + "-" + df2['etime_ceil']
     # rename cols for export
     df2.rename(columns={'Tname_A': 'target_name', 'Strand_A': 'strand'}, inplace=True)
