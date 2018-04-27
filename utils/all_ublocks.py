@@ -52,7 +52,10 @@ def main():
     """
     This script is flawed because it counts unblocks multiple times if
     they are overlapping; i.e if an unblock is within N seconds of > 1
-    read start it will be counted for every read start 
+    read start it will be counted for every read start
+    """
+    """
+    CAN THIS BE USED TO IDENTIFY UNBLOCKS THAT END READS AND UNBLOCKS THAT DO NOT END READS... 
     """
     return
 
