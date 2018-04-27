@@ -14,7 +14,7 @@ def main():
               'start_match', 'end_match', 'cat_read_id', 'count']
     p = Path(args.out_fused)
     fused_df.to_csv(p, sep="\t", header=True, columns=header, index=False)
-    print("Fused read summary file saved as {f}".format(f=args.out_fused))
+    print("Fused read summary file saved as {f}".format(f=p.name))
         
 def fuse_reads(summary, paf, distance, top_N, alt, debug):
     sequencing_summary = summary
