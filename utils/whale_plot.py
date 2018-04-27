@@ -177,20 +177,21 @@ def main():
 
     if args.generate_plot:
         # subprocess to R, generate plot
-        R_script = str(Path(Path(__file__).resolve().parent / 'final.R'))
-        cmd = "Rscript {r} {a} {b} {c} {d} {e} {f} {o}".format(r=R_script,
-                                                               a=args.A,
-                                                               b=args.B,
-                                                               c=args.C,
-                                                               d=args.D,
-                                                               e=args.E,
-                                                               f=args.F,
-                                                               o=args.out
-                                                               )
+        R_script = str(Path(Path(__file__).resolve().parent / 'whale_plot.R'))
+        cmd = "Rscript {r} {a} {b} {c} {d} {e} {f} {o} {run}".format(r=R_script,
+                                                                     a=args.A,
+                                                                     b=args.B,
+                                                                     c=args.C,
+                                                                     d=args.D,
+                                                                     e=args.E,
+                                                                     f=args.F,
+                                                                     o=args.out,
+                                                                     run=run_id
+                                                                     )
         proc = subprocess.Popen(cmd, shell=True)
         proc.communicate()
         if proc.returncode == 0:
-            print("R finished successfully!")
+            print("plot saved as {f}".format(f=Path(args.out).name))
         else:
             print(proc.returncode)
     return
