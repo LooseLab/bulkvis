@@ -48,9 +48,9 @@ g <- ggplot(subset(df, Classification %in% c("above", "adapter", "pore", "transi
   scale_x_continuous(breaks = c(-10,-8,-6,-4,-2,0,2,4,6,8,10)) +
   theme_minimal() +
   theme(legend.position='none',plot.title = element_text(family = "Helvetica", face = "bold", size = (15),hjust = 0.5)) +
-  ggtitle("Bulk File Classifications - RAD004 Sample (97030)") +
-  geom_vline(xintercept=c(0), linetype="dotted") +
-  xlab("Time (Seconds)") +
+  ggtitle("Bulk File Classifications") +     
+  geom_vline(xintercept=c(0), linetype="dotted") + 
+  xlab("Time (Seconds)") + 
   ylab("Classification Count")
 
 ggsave(filename = out, plot = g, width = 345, height = 272, units = "mm")
