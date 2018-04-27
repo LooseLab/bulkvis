@@ -12,6 +12,7 @@ D = args[4]
 E = args[5]
 F = args[6]
 out = args[7]
+run = args[8]
 
 ii <- read.delim(file = C, sep=',')
 ii = ii %>%
@@ -39,8 +40,15 @@ k = k %>%
   gather('Classification', 'Time', 2:ncol(k))
 k$type = 'B) Unique Read End'
 
-df = rbind(kk ,jj ,ii ,k, j, i)
+df = rbind(kk, jj, ii, k, j, i)
 df = filter(df, df$Time >= -10 & df$Time <= 10)
+
+if (is.na(run) || is.null(run)){
+  title = "Bulk fast5 file classification"
+} else {
+  title = paste("Bulk fast5 file classification -", run, collapse="")
+}
+
 
 g <- ggplot(subset(df, Classification %in% c("above", "adapter", "pore", "transition",  "unblocking", "unclassified")), aes(Time,fill=Classification)) +
   geom_density(aes(y=..count..),alpha=0.5) +
@@ -48,7 +56,7 @@ g <- ggplot(subset(df, Classification %in% c("above", "adapter", "pore", "transi
   scale_x_continuous(breaks = c(-10,-8,-6,-4,-2,0,2,4,6,8,10)) +
   theme_minimal() +
   theme(legend.position='none',plot.title = element_text(family = "Helvetica", face = "bold", size = (15),hjust = 0.5)) +
-  ggtitle("Bulk File Classifications - RAD004 Sample (97030)") +
+  ggtitle(title) +
   geom_vline(xintercept=c(0), linetype="dotted") +
   xlab("Time (Seconds)") +
   ylab("Classification Count")
