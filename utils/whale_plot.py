@@ -177,7 +177,7 @@ def main():
 
     if args.generate_plot:
         # subprocess to R, generate plot
-        R_script = str(Path(Path(__file__).resolve().parent / 'whale_plot.R'))
+        R_script = str(Path(Path(__file__).resolve().parent / 'class_plot.R'))
         cmd = "Rscript {r} {a} {b} {c} {d} {e} {f} {o} {run}".format(r=R_script,
                                                                      a=args.A,
                                                                      b=args.B,
@@ -201,8 +201,8 @@ def get_args():
     parser = ArgumentParser(
         description="""Parse sequencing_summary.txt, .paf, 
                        and bulk fast5 files to generate 
-                       distribution files for creating 
-                       figures in R""",
+                       distribution files for creating classification 
+                       figures in R.""",
         add_help=False)
     general = parser.add_argument_group(
         title='General options')
