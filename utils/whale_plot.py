@@ -225,7 +225,7 @@ def get_args():
                          type=int,
                          default=10000,
                          )
-    general.add_argument("-V",
+    general.add_argument("-V", "--verbose",
                          help='''Print verbose output to terminal''',
                          action="store_true",
                          default=False,
