@@ -15,7 +15,7 @@ from bokeh.plotting import curdoc, figure
 from utils.stitch import export_read_file
 
 config = configparser.ConfigParser()
-config.read(Path(Path(__file__).resolve().parent / 'config.ini'))
+config.read(str(Path(Path(__file__).resolve().parent / 'config.ini')))
 cfg_po = config['plot_opts']
 cfg_dr = config['data']
 cfg_lo = config['labels']
@@ -127,6 +127,11 @@ def open_bulkfile(path):
     except KeyError:
         app_data['app_vars']['mk_ver'] = "NA"
     try:
+        # Protocols version
+        app_data['app_vars']['p_ver'] = file["UniqueGlobalKey"]["tracking_id"].attrs["protocols_version"].decode('utf8')
+    except KeyError:
+        app_data['app_vars']['p_ver'] = "NA"
+    try:
         # MinION ID
         app_data['app_vars']['m_id'] = file["UniqueGlobalKey"]["tracking_id"].attrs["device_id"].decode('utf8')
     except KeyError:
@@ -147,6 +152,11 @@ def open_bulkfile(path):
     except KeyError:
         app_data['app_vars']['fc_t'] = "NA"
     try:
+        # run ID
+        app_data['app_vars']['run'] = file["UniqueGlobalKey"]["tracking_id"].attrs["run_id"].decode('utf8')
+    except KeyError:
+        app_data['app_vars']['run'] = "NA"
+    try:
         # ASIC ID
         app_data['app_vars']['asic'] = file["UniqueGlobalKey"]["tracking_id"].attrs["asic_id"].decode('utf8')
     except KeyError:
@@ -164,9 +174,19 @@ def open_bulkfile(path):
 
 # noinspection PyUnboundLocalVariable
 def parse_position(attr, old, new):
-    if new[0] == "@":
+    if re.match(r'^(\@[a-f0-9\-]{36})([a-z0-9=\s]{1,})ch=[0-9]{1,4}', new):
+        # https://regex101.com/r/9VvgNM/4
+        # Match UUID / read_id as fastq str
+        #   ^(\@[a-f0-9\-]{36})
+        # Match lowercase a-z, 0-9, '=' and whitespace
+        #   ([a-z0-9=\s]{1,})
+        # Match 'ch=' and up to 4 numbers
+        #   ch=[0-9]{1,4}
+        # if new[0] == "@":
+        input_error(app_data['wdg_dict']['position'], 'remove')
         fq = new[1:]
         fq_list = fq.split(" ")
+        # split out read_id and channel
         for k, item in enumerate(fq_list):
             if k == 0:
                 read_id = item
@@ -187,26 +207,31 @@ def parse_position(attr, old, new):
             df.read_id = df.read_id.str.decode('utf8')
             df = df.where(df.read_id == read_id)
             df = df.dropna()
-            # !!! check that multiple rows are still here
-            start_time = math.floor(df.iloc[0, :].read_start)
-            end_time = math.ceil(df.iloc[-1, :].read_start)
+            if len(df) > 2:
+                start_time = math.floor(df.iloc[0, :].read_start)
+                end_time = math.ceil(df.iloc[-1, :].read_start)
+            else:
+                input_error(app_data['wdg_dict']['position'], 'add')
+                return
+        else:
+            input_error(app_data['wdg_dict']['position'], 'add')
+            return
         app_data['wdg_dict']['position'].value = "{ch}:{start}-{end}".format(
             ch=channel_num,
             start=start_time,
             end=end_time
         )
-    elif re.match(r'^[0-9]{1,3}:[0-9]{1,9}-[0-9]{1,9}', new):
-        # https://regex101.com/r/zkN1j2/1
+    elif re.match(r'^([0-9]{1,4}:[0-9]{1,9}-[0-9]{1,9})\Z', new):
+        # https://regex101.com/r/zkN1j2/2
+        input_error(app_data['wdg_dict']['position'], 'remove')
         coords = new.split(":")
         times = coords[1].split("-")
         channel_num = coords[0]
         channel_str = "Channel_{num}".format(num=channel_num)
         (start_time, end_time) = times[0], times[1]
     else:
-        channel_str = None
-        channel_num = None
-        start_time = None
-        end_time = None
+        input_error(app_data['wdg_dict']['position'], 'add')
+        return
 
     if int(end_time) > app_data['app_vars']['len_ds']:
         end_time = app_data['app_vars']['len_ds']
@@ -328,7 +353,7 @@ def build_widgets():
 
     wdg['export_label'] = Div(text='Export data:', css_classes=['export-dropdown', 'help-text'])
     wdg['export_text'] = Div(
-        text="""Export data, as a read file, from the current squiggle shown. These are written to the output directory 
+        text="""Export data, as a read file, from the current position. These are written to the output directory 
                 specified in your config file.
                 """,
         css_classes=['export-drop']
@@ -339,17 +364,18 @@ def build_widgets():
         css_classes=[]
     )
     wdg['bulkfile_info'] = Div(text='Bulkfile info', css_classes=['bulkfile-dropdown', 'caret-down'])
-    wdg['bulkfile_help'] = Div(text='Bulkfile help:', css_classes=['bulkfile-help-dropdown', 'help-text', 'bulkfile-drop'])
+    wdg['bulkfile_help'] = Div(text='Bulkfile info help:', css_classes=['bulkfile-help-dropdown', 'help-text', 'bulkfile-drop'])
     wdg['bulkfile_help_text'] = Div(
-        text="""Export data, as a read file, from the current squiggle shown. These are written to the output directory 
-                specified in your config file.
+        text="""This contains basic information about the experiment that is recorded in the bulk-fast5-file.
                 """,
         css_classes=['bulkfile-help-drop']
     )
     wdg['bulkfile_text'] = Div(
         text="""<b>Experiment:</b> <br><code>{exp}</code><br>
+                <b>Run ID:</b> <br><code>{run}</code><br>
                 <b>Flowcell ID:</b> <br><code>{fc_id}</code><br>
                 <b>MinKNOW version:</b> <br><code>{mk_ver}</code><br>
+                <b>Protocols version:</b> <br><code>{p_ver}</code><br>
                 <b>MinION ID:</b> <br><code>{m_id}</code><br>
                 <b>Hostname:</b> <br><code>{hn}</code><br>
                 <b>Sequencing kit:</b> <br><code>{sk}</code><br>
@@ -357,23 +383,25 @@ def build_widgets():
                 <b>ASIC ID:</b> <br><code>{asic}</code><br>
                 <b>Experiment start:</b> <br><code>{exp_d}</code>
                 """.format(
-        exp=app_data['app_vars']['exp'],
-        fc_id=app_data['app_vars']['fc_id'],
-        mk_ver=app_data['app_vars']['mk_ver'],
-        m_id=app_data['app_vars']['m_id'],
-        hn=app_data['app_vars']['hn'],
-        sk=app_data['app_vars']['sk'],
-        fc_t=app_data['app_vars']['fc_t'],
-        asic=app_data['app_vars']['asic'],
-        exp_d=app_data['app_vars']['exp_d']
+            exp=app_data['app_vars']['exp'],
+            run=app_data['app_vars']['run'],
+            fc_id=app_data['app_vars']['fc_id'],
+            mk_ver=app_data['app_vars']['mk_ver'],
+            p_ver=app_data['app_vars']['p_ver'],
+            m_id=app_data['app_vars']['m_id'],
+            hn=app_data['app_vars']['hn'],
+            sk=app_data['app_vars']['sk'],
+            fc_t=app_data['app_vars']['fc_t'],
+            asic=app_data['app_vars']['asic'],
+            exp_d=app_data['app_vars']['exp_d']
         ),
         css_classes=['bulkfile-drop']
     )
     wdg['label_options'] = Div(text='Select annotations', css_classes=['filter-dropdown', 'caret-down'])
     wdg['filter_help'] = Div(text='filter help:', css_classes=['filter-help-dropdown', 'help-text', 'filter-drop'])
     wdg['filter_help_text'] = Div(
-        text="""Export data, as a read file, from the current squiggle shown. These are written to the output directory 
-                specified in your config file.
+        text="""Select which bulkfile annotations should be rendered on the chart. 'Display annotations' will turn all 
+                annotations on or off.
                 """,
         css_classes=['filter-help-drop']
     )
@@ -385,11 +413,11 @@ def build_widgets():
     )
     wdg['label_filter'] = CheckboxGroup(labels=check_labels, active=check_active, css_classes=['filter-drop'])
     
-    wdg['plot_options'] = Div(text='Plot Adjustments', css_classes=['adjust-dropdown', 'caret-down'])
+    wdg['plot_options'] = Div(text='Plot adjustments', css_classes=['adjust-dropdown', 'caret-down'])
     wdg['adjust_help'] = Div(text='adjust help:', css_classes=['adjust-help-dropdown', 'help-text', 'adjust-drop'])
     wdg['adjust_help_text'] = Div(
-        text="""Export data, as a read file, from the current squiggle shown. These are written to the output directory 
-                specified in your config file.
+        text="""Adjust chart parameters, such as width, height and where annotations are rendered. These are set in the
+                config.ini, where the default values can be edited.
                 """,
         css_classes=['adjust-help-drop']
     )
@@ -400,12 +428,12 @@ def build_widgets():
         value=cfg_po['label_height'],
         css_classes=['adjust-drop']
     )
-    wdg['po_y_max'] = TextInput(title="y max", value=cfg_po['y_max'], css_classes=['adjust-drop'])
-    wdg['po_y_min'] = TextInput(title="y min", value=cfg_po['y_min'], css_classes=['adjust-drop'])
+    wdg['po_y_max'] = TextInput(title="y max", value=cfg_po['y_max'], css_classes=['adjust-drop', 'toggle_y_target'])
+    wdg['po_y_min'] = TextInput(title="y min", value=cfg_po['y_min'], css_classes=['adjust-drop', 'toggle_y_target'])
     wdg['toggle_y_axis'] = Toggle(
         label="Fixed Y-axis",
         button_type="danger",
-        css_classes=['toggle_button_g_r', 'adjust-drop'],
+        css_classes=['toggle_button_g_r', 'adjust-drop', 'toggle_y_axis'],
         active=False
     )
     wdg['toggle_smoothing'] = Toggle(
@@ -514,7 +542,8 @@ def create_figure(x_data, y_data, wdg, app_vars):
                         x_offset=0,
                         y_offset=0,
                         render_mode='canvas',
-                        angle=-300
+                        angle=-270,
+                        angle_units='deg'
                     )
                     p.add_layout(labels)
     return p
@@ -639,10 +668,6 @@ def export_data():
         app_data['wdg_dict']['duration'].text += "\nError: read file not created"
 
 
-def range_update(attr, old, new):
-    app_data['app_vars'][attr] = new
-
-
 app_data = {
     'file_src': None,  # bulkfile path (string)
     'bulkfile': None,  # bulkfile object
@@ -675,20 +700,29 @@ toggle_inputs = ['toggle_y_axis', 'toggle_annotations', 'toggle_smoothing']
 app_data['app_vars']['files'] = []
 p = Path(cfg_dr['dir'])
 app_data['app_vars']['files'] = [(x.name, x.name) for x in p.iterdir() if x.suffix == '.fast5']
+# check files are useable by h5py
 for index, file in enumerate(app_data['app_vars']['files']):
     file = file[0]
-    bulk_file = h5py.File(Path(Path(cfg_dr['dir']) / file), 'r')
-    try_path = bulk_file["Raw"]
+    try:
+        bulk_file = h5py.File(Path(Path(cfg_dr['dir']) / file), 'r')
+    except OSError:
+        app_data['app_vars']['files'][index] = None
+        continue
+    try:
+        try_path = bulk_file["Raw"]
+    except KeyError:
+        app_data['app_vars']['files'][index] = None
+        continue
     for i, channel in enumerate(try_path):
         if i == 0:
             try:
                 try_path[channel]["Signal"][0]
             except KeyError:
-                del app_data['app_vars']['files'][index]
+                app_data['app_vars']['files'][index] = None
         break
     bulk_file.flush()
     bulk_file.close()
-
+app_data['app_vars']['files'] = list(filter((None).__ne__, app_data['app_vars']['files']))
 app_data['app_vars']['files'].insert(0, ("", "--"))
 
 app_data['wdg_dict'] = init_wdg_dict()

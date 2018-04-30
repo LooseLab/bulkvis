@@ -1,3 +1,5 @@
+from pathlib import Path
+import sys
 """
 A collection of channel lookup functions.
 """
@@ -177,3 +179,8 @@ def surround_channels(ch, s):
             except KeyError:
                 continue
     return channels
+
+
+if __name__ == "__main__":
+    print("Sorry, {f} is not designed to be run directly.".format(f=Path(__file__).name))
+    sys.exit()

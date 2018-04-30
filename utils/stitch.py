@@ -1,5 +1,7 @@
 import h5py
 import pandas as pd
+from pathlib import Path
+import sys
 
 
 def export_read_file(channel, start_index, end_index, bulkfile, output_dir):
@@ -94,3 +96,8 @@ def export_read_file(channel, start_index, end_index, bulkfile, output_dir):
 
     readfile.close()
     return 0
+
+
+if __name__ == "__main__":
+    print("Sorry, {f} is not designed to be run directly.".format(f=Path(__file__).name))
+    sys.exit()

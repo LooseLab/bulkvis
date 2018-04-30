@@ -2,13 +2,9 @@
 *.fast5
 .idea
 *.gcx
-cfg.py
-todo
 main2.py
-__pycache__/*
-utils/__pycache__/*
-config.ini
+*__pycache__*
 *.ini
 docs/_build
-docs/_static
 docs/_template
+data/*

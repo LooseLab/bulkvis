@@ -153,3 +153,6 @@ texinfo_documents = [
      author, 'bulkvis', 'One line description of project.',
      'Miscellaneous'),
 ]
+
+def setup(app):
+    app.add_stylesheet('css/custom.css')
