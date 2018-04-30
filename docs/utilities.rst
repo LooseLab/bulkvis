@@ -142,6 +142,19 @@ Example plot:
 
     Example plot from whale_plot.py
 
+whale.R
+^^^^^^^
+
+This R script is called by whale_plot.py to produce the above plot, it requires `Rscript` to run and can be run independently. To run:
+
+.. code-block:: bash
+
+    $ Rscript whale.R col_A.csv col_B.csv col_C.csv col_D.csv col_E.csv col_F.csv <<output filename>> <<run id>>
+
+The order arguments is given is essential in this script, otherwise labels will not match.
+The output filename must include a file extesion from `[.eps, .ps, .tex, .pdf, .jpeg, .tiff, .png, .bmp, .svg, .wmf]`.
+Run id is not required to execute this script.
+
 pod_plot.py
 ^^^^^^^^^^^
 .. code-block:: bash
@@ -161,10 +174,31 @@ pod_plot.py
       -D , --out-dir     Specify the output directory where plots will be saved.
                          Defaults to current working directory
 
+bulk_stats.py
+-------------
+.. code-block:: bash
 
+    Given a directory containing bulk fast5 files output a csv containing the run
+    information for them
 
-4.1.1
-"""""
-4.1.1
+    General options:
+      -h, --help   Show this help and exit
 
+    Input sources:
+      -d , --dir   A directory containing bulk-fast5-files
 
+    Output sources:
+      -o , --out   Output csv filename
+
+Other scripts
+-------------
+
+channelmaps.py
+^^^^^^^^^^^^^^
+`channelmaps.py` is a utility script that is designed to be called by other scripts. It contains the physical layout of
+ONT minION flowcells and allows lookup by channel number, reverse lookup by coordinates, and can return a list of
+surrounding channels.
+
+stitch.py
+^^^^^^^^^
+`stitch.py` is a utility script that is called from bulkvis, it will produce the read fast5 file from the squiggle data.

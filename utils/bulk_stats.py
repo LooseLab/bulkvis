@@ -86,7 +86,8 @@ def main():
 
 def get_args():
     parser = ArgumentParser(
-        description="""This does something...""",
+        description="""Given a directory containing bulk fast5 files output a csv containing the run 
+        information for them""",
         add_help=False)
     general = parser.add_argument_group(
         title='General options')
@@ -108,7 +109,7 @@ def get_args():
         title='Output sources'
     )
     out_args.add_argument("-o", "--out",
-                         help="Name for the output file",
+                         help="Output csv filename",
                          type=str,
                          default='',
                          required=True,
