@@ -175,7 +175,7 @@ def main():
     # last fused read end
     l_dist_df.to_csv(args.F, sep=",", header=True)
 
-    if args.generate_plot:
+    if not args.no_generate_plot:
         # subprocess to R, generate plot
         R_script = str(Path(Path(__file__).resolve().parent / 'class_plot.R'))
         cmd = "Rscript {r} {a} {b} {c} {d} {e} {f} {o} {run}".format(r=R_script,
@@ -259,8 +259,8 @@ def get_args():
     )
     out_args.add_argument("--no-generate-plot",
                           help="If set, do not generate density plot",
-                          action="store_false",
-                          default=True,
+                          action="store_true",
+                          default=False,
                           )
     out_args.add_argument("-A",
                          help="CSV of MinKNOW events occurring before and after correctly called read starts",
