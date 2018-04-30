@@ -123,6 +123,13 @@ pod_plot.py
       -D , --out-dir     Specify the output directory where plots will be saved.
                          Defaults to current working directory
 
+whale_plot.py
+^^^^^^^^^^^^^
+Desc
+.. code-block:: bash
+
+    123
+
 
 4.1.1
 """""
