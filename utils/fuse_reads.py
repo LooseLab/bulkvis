@@ -150,23 +150,23 @@ def get_args():
                          required=True,
                          metavar=''
                          )
-    out_args = parser.add_argument_group(
-        title='Output files'
-    )
-    out_args.add_argument('-S', '--out-summary',
-                          help='''Specify the name of the complete fused read file. This file contains all reads from 
-                               sequencing_summary.txt and chains of reads.''',
-                          type=str,
-                          default='fused_summary.txt',
-                          metavar=''
-                          )
-    out_args.add_argument('-F', '--out-fused',
-                          help='''Specify name of the fused_read file. This file only contains chains of reads. 
-                               Defaults to \'fused_reads.txt\'''',
-                          type=str,
-                          default='fused_reads.txt',
-                          metavar=''
-                          )
+    # out_args = parser.add_argument_group(
+    #     title='Output files'
+    # )
+    # out_args.add_argument('-S', '--out-summary',
+    #                       help='''Specify the name of the complete fused read file. This file contains all reads from
+    #                            sequencing_summary.txt and chains of reads.''',
+    #                       type=str,
+    #                       default='fused_summary.txt',
+    #                       metavar=''
+    #                       )
+    # out_args.add_argument('-F', '--out-fused',
+    #                       help='''Specify name of the fused_read file. This file only contains chains of reads.
+    #                            Defaults to \'fused_reads.txt\'''',
+    #                       type=str,
+    #                       default='fused_reads.txt',
+    #                       metavar=''
+    #                       )
     return parser.parse_args()
 
 

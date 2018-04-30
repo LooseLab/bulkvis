@@ -5,7 +5,7 @@ import configparser
 
 def get_args():
     parser = ArgumentParser(
-        description="""Get the label options for a bulkfile for copying into a config file""",
+        description="""Generate a configuration file required for bulkvis to run""",
         add_help=False)
     general = parser.add_argument_group(
         title='General options')
@@ -24,13 +24,13 @@ def get_args():
                          metavar=''
                          )
     in_args.add_argument("-i", "--input-dir",
-                         help="The directory containing bulk-files for visualisation",
+                         help="The path to tbe folder containing bulk-files for visualisation",
                          type=str,
                          required=True,
                          metavar=""
                          )
     in_args.add_argument("-e", "--export-dir",
-                         help="The directory where read-files will be written by bulkvis",
+                         help="The path to tbe folder where read-files will be written by bulkvis",
                          type=str,
                          required=True,
                          metavar=""
