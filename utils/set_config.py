@@ -19,7 +19,6 @@ def get_args():
     in_args.add_argument("-b", "--bulkfile",
                          help="A bulk-fast5 file to get labels from",
                          type=str,
-                         default="",
                          required=True,
                          metavar=''
                          )
@@ -46,13 +45,6 @@ def get_args():
                           )
     return parser.parse_args()
 
-def str2bool(v):
-    if v.lower() in ('true', 't', 'yes', 'y', '1'):
-        return True
-    elif v.lower() in ('false', 'f', 'no', 'n', '0'):
-        return False
-    else:
-        return ArgumentTypeError('Boolean value expected.')
 
 def get_annotations(path, enum_field):
     data_dtypes = {}
