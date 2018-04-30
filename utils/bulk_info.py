@@ -2,7 +2,7 @@ import h5py
 from pathlib import Path
 import pandas as pd
 from dateutil import parser
-from argparse import ArgumentParser
+from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
 
 
 def get_stats(bulkfile):
@@ -87,7 +87,8 @@ def main():
 def get_args():
     parser = ArgumentParser(
         description="""Given a directory containing bulk fast5 files output a csv containing the run 
-        information for them""",
+                    information for them""",
+        formatter_class=ArgumentDefaultsHelpFormatter,
         add_help=False)
     general = parser.add_argument_group(
         title='General options')
@@ -101,7 +102,6 @@ def get_args():
     in_args.add_argument("-d", "--dir",
                          help="A directory containing bulk-fast5-files",
                          type=str,
-                         default='',
                          required=True,
                          metavar=''
                          )
@@ -111,7 +111,7 @@ def get_args():
     out_args.add_argument("-o", "--out",
                          help="Output csv filename",
                          type=str,
-                         default='',
+                         default='bulk_info.csv',
                          required=True,
                          metavar=''
                          )
