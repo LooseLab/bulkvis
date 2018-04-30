@@ -14,33 +14,33 @@ F = args[6]
 out = args[7]
 run = args[8]
 
-c <- read.delim(file = C, sep=',')
-c = c %>%
-  gather('Classification', 'Time', 2:ncol(c))
-c$type = 'C) Split Read Start'
-d <- read.delim(file = D, sep=',')
-d = d %>%
-  gather('Classification', 'Time', 2:ncol(d))
-d$type = 'D) Internal Read Start'
-a <- read.delim(file = A, sep=',')
-a = a %>%
-  gather('Classification', 'Time', 2:ncol(a))
-a$type = 'A) Unique Read Start'
+col_c <- read.delim(file = C, sep=',')
+col_c = col_c %>%
+  gather('Classification', 'Time', 2:ncol(col_c))
+col_c$type = 'C) Split Read Start'
+col_d <- read.delim(file = D, sep=',')
+col_d = col_d %>%
+  gather('Classification', 'Time', 2:ncol(col_d))
+col_d$type = 'D) Internal Read Start'
+col_a <- read.delim(file = A, sep=',')
+col_a = col_a %>%
+  gather('Classification', 'Time', 2:ncol(col_a))
+col_a$type = 'A) Unique Read Start'
 
-e <- read.delim(file = E, sep=',')
-e = e %>%
-  gather('Classification', 'Time', 2:ncol(e))
-e$type = 'E) Internal Read Ends'
-f <- read.delim(file = F, sep=',')
-f = f %>%
-  gather('Classification', 'Time', 2:ncol(f))
-f$type = 'F) Split Read End'
-b <- read.delim(file = B, sep=',')
-b = b %>%
-  gather('Classification', 'Time', 2:ncol(b))
-b$type = 'B) Unique Read End'
+col_e <- read.delim(file = E, sep=',')
+col_e = col_e %>%
+  gather('Classification', 'Time', 2:ncol(col_e))
+col_e$type = 'E) Internal Read Ends'
+col_f <- read.delim(file = F, sep=',')
+col_f = col_f %>%
+  gather('Classification', 'Time', 2:ncol(col_f))
+col_f$type = 'F) Split Read End'
+col_b <- read.delim(file = B, sep=',')
+col_b = col_b %>%
+  gather('Classification', 'Time', 2:ncol(col_b))
+col_b$type = 'B) Unique Read End'
 
-df = rbind(a, b, c, d, e, f)
+df = rbind(col_a, col_b, col_c, col_d, col_e, col_f)
 df = filter(df, df$Time >= -10 & df$Time <= 10)
 
 if (is.na(run) || is.null(run)){
