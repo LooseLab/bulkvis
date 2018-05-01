@@ -6,6 +6,7 @@ from whale_watch import fuse_reads
 import sys
 from pathlib import Path
 import subprocess
+from tqdm import tqdm
 
 
 def full_path(file):
@@ -55,12 +56,12 @@ def prepare_data(seq_sum_df, interval_time, bulkfile, v, sf, run_id):
     dist_dict = defaultdict(list)
     sdist_dict = defaultdict(list)
 
-    for ch in channels:
+    for ch in tqdm(channels):
         # format channel
         ch = int(ch)
         ch_str = "Channel_{ch}".format(ch=ch)
-        if v:
-            print(ch_str)
+        # if v:
+        #     print(ch_str)
         # set the paths
         try:
             int_path = bulkfile["IntermediateData"][ch_str]["Reads"]
