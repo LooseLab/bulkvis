@@ -18,11 +18,17 @@ $ source ~/envs/bulkvis/bin/activate
 # Clone the repo to your installation/projects directory
 $ git clone https://github.com/LooseLab/bulkvis.git
 
+# Enter the bulkvis folder
+$ cd bulkvis
+
 # Install dependencies via pip
 $ pip install -r requirements.txt
 
 # Set config with set_config.py
-$ python utils/set_config.py -b <<bulkfile>> -i /path/to/input/directory -e /path/to/export/directory
+$ python utils/set_config.py -b <<bulkfile>> -i /path/to/bulkfile/directory -e /path/to/read/file/export/directory
+
+# Move to bulkvis' parent folder
+$ cd ..
 
 # Start bokeh server
 $ bokeh serve --show bulkvis
