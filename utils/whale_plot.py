@@ -10,8 +10,7 @@ from tqdm import tqdm
 
 
 def full_path(file):
-    f = str(Path(file).resolve())
-    return f
+    return str(Path(file).expanduser().resolve())
 
 
 def validate_file(file):
@@ -20,7 +19,7 @@ def validate_file(file):
     if f.suffix not in valid:
         msg = "File doesn't end with one of {v}".format(v=valid)
         raise ArgumentTypeError(msg)
-    return f
+    return str(f)
 
 
 def trim_series(keep_series, trim_df):
