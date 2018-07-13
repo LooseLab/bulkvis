@@ -71,7 +71,7 @@ def update_file(attr, old, new):
 
     (app_data['bulkfile'],
      app_data['app_vars']['sf'],
-     app_data['app_vars']['channel_list']) = open_bulkfile(app_data['file_src'])
+     app_data['app_vars']['attributes']) = open_bulkfile(app_data['file_src'])
 
     raw_path = app_data['bulkfile']["Raw"]
     for i, member in enumerate(raw_path):
@@ -109,67 +109,23 @@ def open_bulkfile(path):
     file = h5py.File(path, "r")
     # Get sample frequency, how many data points are collected each second
     sf = int(file["UniqueGlobalKey"]["context_tags"].attrs["sample_frequency"].decode('utf8'))
-    # make channel_list
-    channel_list = np.arange(1, len(file["Raw"]) + 1, 1).tolist()
-    try:
-        # Experiment
-        app_data['app_vars']['exp'] = file["UniqueGlobalKey"]["tracking_id"].attrs["sample_id"].decode('utf8')
-    except KeyError:
-        app_data['app_vars']['exp'] = "NA"
-    try:
-        # Flowcell ID
-        app_data['app_vars']['fc_id'] = file["UniqueGlobalKey"]["tracking_id"].attrs["flow_cell_id"].decode('utf8')
-    except KeyError:
-        app_data['app_vars']['fc_id'] = "NA"
-    try:
-        # MinKNOW version
-        app_data['app_vars']['mk_ver'] = file["UniqueGlobalKey"]["tracking_id"].attrs["version"].decode('utf8')
-    except KeyError:
-        app_data['app_vars']['mk_ver'] = "NA"
-    try:
-        # Protocols version
-        app_data['app_vars']['p_ver'] = file["UniqueGlobalKey"]["tracking_id"].attrs["protocols_version"].decode('utf8')
-    except KeyError:
-        app_data['app_vars']['p_ver'] = "NA"
-    try:
-        # MinION ID
-        app_data['app_vars']['m_id'] = file["UniqueGlobalKey"]["tracking_id"].attrs["device_id"].decode('utf8')
-    except KeyError:
-        app_data['app_vars']['m_id'] = "NA"
-    try:
-        # Hostname
-        app_data['app_vars']['hn'] = file["UniqueGlobalKey"]["tracking_id"].attrs["hostname"].decode('utf8')
-    except KeyError:
-        app_data['app_vars']['hn'] = "NA"
-    try:
-        # Sequencing kit
-        app_data['app_vars']['sk'] = file["UniqueGlobalKey"]["context_tags"].attrs["sequencing_kit"].decode('utf8')
-    except KeyError:
-        app_data['app_vars']['sk'] = "NA"
-    try:
-        # Flowcell type
-        app_data['app_vars']['fc_t'] = file["UniqueGlobalKey"]["context_tags"].attrs["flowcell_type"].decode('utf8')
-    except KeyError:
-        app_data['app_vars']['fc_t'] = "NA"
-    try:
-        # run ID
-        app_data['app_vars']['run'] = file["UniqueGlobalKey"]["tracking_id"].attrs["run_id"].decode('utf8')
-    except KeyError:
-        app_data['app_vars']['run'] = "NA"
-    try:
-        # ASIC ID
-        app_data['app_vars']['asic'] = file["UniqueGlobalKey"]["tracking_id"].attrs["asic_id"].decode('utf8')
-    except KeyError:
-        app_data['app_vars']['asic'] = "NA"
-    try:
-        # Experiment start
-        app_data['app_vars']['exp_d'] = parser.parse(
-            file["UniqueGlobalKey"]["tracking_id"].attrs["exp_start_time"].decode('utf8')).strftime(
-            '%d-%b-%Y %H:%M:%S')
-    except KeyError:
-        app_data['app_vars']['exp_d'] = "NA"
+    attributes = OrderedDict([
+        ('tracking_id', [('Experiment', 'sample_id'), ('Flowcell ID', 'flow_cell_id'), ('MinKNOW version', 'version'),
+                         ('Protocols version', 'protocols_version'), ('MinION ID', 'device_id'),
+                         ('Hostname', 'hostname'), ('Run ID', 'run_id'), ('ASIC ID', 'asic_id'),
+                         ('Experiment start', 'exp_start_time')]),
+        ('context_tags', [('Sequencing kit', 'sequencing_kit'), ('Flowcell type', 'flowcell_type')])])
 
-    return file, sf, channel_list
+    for k, v in attributes.items():
+        for attribute in v:
+            try:
+                app_data['app_vars'][attribute[0]] = file['UniqueGlobalKey'][k].attrs[attribute[1]].decode('utf8')
+                if attribute[1] == 'exp_start_time':
+                    app_data['app_vars'][attribute[0]] = parser.parse(
+                        app_data['app_vars'][attribute[0]]).strftime('%d-%b-%Y %H:%M:%S')
+            except KeyError:
+                app_data['app_vars'][attribute[0]] = 'N/A'
+    return file, sf, attributes
 
 
 # noinspection PyUnboundLocalVariable
@@ -264,13 +220,6 @@ def update_data(bulkfile, app_vars):
     path = bulkfile["IntermediateData"][app_vars['channel_str']]["Reads"]
     fields = ['read_id', 'read_start', 'modal_classification']
     app_data['label_df'], app_data['label_dt'] = get_annotations(path, fields, 'modal_classification')
-    # print("Labels:")
-    # print("Original df:\t", len(app_data['label_df']))
-    # d1 = len(app_data['label_df'].drop_duplicates(subset=['read_id'], keep="first"))
-    # print("Drop on one:\t", d1)
-    # d2 = len(app_data['label_df'].drop_duplicates(subset=['read_id', 'modal_classification'], keep="first"))
-    # print("Drop on two:\t", d2)
-    # print("Difference  \t", d2-d1)
     app_data['label_df'] = app_data['label_df'].drop_duplicates(subset=['read_id', 'modal_classification'], keep="first")
     app_data['label_df'].read_start = app_data['label_df'].read_start / app_vars['sf']
     app_data['label_df'].read_id = app_data['label_df'].read_id.str.decode('utf8')
@@ -282,7 +231,7 @@ def update_data(bulkfile, app_vars):
     state_label_df = state_label_df.rename(
         columns={'acquisition_raw_index': 'read_start', 'summary_state': 'modal_classification'}
     )
-    app_data['label_df'] = app_data['label_df'].append(state_label_df, ignore_index=True)
+    app_data['label_df'] = app_data['label_df'].append(state_label_df, ignore_index=True, sort=True)
     app_data['label_df'].sort_values(by='read_start', ascending=True, inplace=True)
     app_data['label_dt'].update(state_label_dtypes)
 
@@ -370,33 +319,13 @@ def build_widgets():
                 """,
         css_classes=['bulkfile-help-drop']
     )
-    wdg['bulkfile_text'] = Div(
-        text="""<b>Experiment:</b> <br><code>{exp}</code><br>
-                <b>Run ID:</b> <br><code>{run}</code><br>
-                <b>Flowcell ID:</b> <br><code>{fc_id}</code><br>
-                <b>MinKNOW version:</b> <br><code>{mk_ver}</code><br>
-                <b>Protocols version:</b> <br><code>{p_ver}</code><br>
-                <b>MinION ID:</b> <br><code>{m_id}</code><br>
-                <b>Hostname:</b> <br><code>{hn}</code><br>
-                <b>Sequencing kit:</b> <br><code>{sk}</code><br>
-                <b>Flowcell type:</b> <br><code>{fc_t}</code><br>
-                <b>ASIC ID:</b> <br><code>{asic}</code><br>
-                <b>Experiment start:</b> <br><code>{exp_d}</code>
-                """.format(
-            exp=app_data['app_vars']['exp'],
-            run=app_data['app_vars']['run'],
-            fc_id=app_data['app_vars']['fc_id'],
-            mk_ver=app_data['app_vars']['mk_ver'],
-            p_ver=app_data['app_vars']['p_ver'],
-            m_id=app_data['app_vars']['m_id'],
-            hn=app_data['app_vars']['hn'],
-            sk=app_data['app_vars']['sk'],
-            fc_t=app_data['app_vars']['fc_t'],
-            asic=app_data['app_vars']['asic'],
-            exp_d=app_data['app_vars']['exp_d']
-        ),
-        css_classes=['bulkfile-drop']
-    )
+    wdg['bulkfile_text'] = Div(text="", css_classes=['bulkfile-drop'])
+    for k, v in app_data['app_vars']['attributes'].items():
+        for entry in v:
+            wdg['bulkfile_text'].text += '<b>{f}:</b> <br><code>{val}</code><br>'.format(
+                f=entry[0],
+                val=app_data['app_vars'][entry[0]]
+            )
     wdg['label_options'] = Div(text='Select annotations', css_classes=['filter-dropdown', 'caret-down'])
     wdg['filter_help'] = Div(text='filter help:', css_classes=['filter-help-dropdown', 'help-text', 'filter-drop'])
     wdg['filter_help_text'] = Div(
@@ -686,7 +615,7 @@ app_data = {
         'channel_str': None,  # 'Channel_NNN' (string)
         'channel_num': None,  # Channel number (int)
         'sf': None,  # sample frequency (int)
-        'channel_list': None,  # list of all channels as int
+        'attributes': None  # OrderedDict of bulkfile attr info
     },
     'wdg_dict': None,  # dictionary of widgets
     'controls': None,  # widgets added to widgetbox
