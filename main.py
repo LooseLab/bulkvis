@@ -231,7 +231,7 @@ def update_data(bulkfile, app_vars):
     state_label_df = state_label_df.rename(
         columns={'acquisition_raw_index': 'read_start', 'summary_state': 'modal_classification'}
     )
-    app_data['label_df'] = app_data['label_df'].append(state_label_df, ignore_index=True, sort=True)
+    app_data['label_df'] = app_data['label_df'].append(state_label_df, ignore_index=True)
     app_data['label_df'].sort_values(by='read_start', ascending=True, inplace=True)
     app_data['label_dt'].update(state_label_dtypes)
 
