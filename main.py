@@ -9,7 +9,7 @@ import h5py
 import numpy as np
 import pandas as pd
 from bokeh.layouts import row, widgetbox
-from bokeh.models import TextInput, Toggle, Div, Range1d, Label, Span, Title
+from bokeh.models import TextInput, Toggle, Div, Range1d, Label, Span, Title, LabelSet
 from bokeh.models import CheckboxGroup, Dropdown, PreText, Select, Button, ColumnDataSource
 from bokeh.plotting import curdoc, figure
 from utils.stitch import export_read_file
@@ -463,11 +463,23 @@ def create_figure(x_data, y_data, wdg, app_vars):
         line_x_values = np.vstack((slim_label_df['read_start'].values, slim_label_df['read_start'].values)).T
         tmp_list = np.full((1, len(line_x_values)), -10000)
         line_y_values = np.vstack((tmp_list, tmp_list * -1)).T
-        # print(type(line_x_values))
         p.multi_line(line_x_values.tolist(), line_y_values.tolist(), line_dash='dashed', color='green', line_width=1)
         # Map modal_classifications onto df
         # get coordinates and vstack them to produce [[x, x], [x, x]...]
         # np.arange for y values
+        label_source = ColumnDataSource(
+            data=dict(
+                x=slim_label_df['read_start'].values,
+                y=np.full((len(slim_label_df), 1), int(wdg['label_height'].value)),
+                t=slim_label_df['mc_label_map'].values
+            )
+        )
+
+        labels = LabelSet(x='x', y='y', text='t', level='glyph',
+                          x_offset=0, y_offset=0, source=label_source,
+                          render_mode='canvas', angle=-270, angle_units='deg')
+        p.add_layout(labels)
+
         # for index, label in slim_label_df.iterrows():
         #     # if m_c number is a key in label_mp dict
         #     if label.modal_classification in app_data['label_mp']:
