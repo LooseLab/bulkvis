@@ -231,7 +231,7 @@ def update_data(bulkfile, app_vars):
     state_label_df = state_label_df.rename(
         columns={'acquisition_raw_index': 'read_start', 'summary_state': 'modal_classification'}
     )
-    app_data['label_df'] = app_data['label_df'].append(state_label_df, ignore_index=True, sort=True)
+    app_data['label_df'] = app_data['label_df'].append(state_label_df, ignore_index=True)
     app_data['label_df'].sort_values(by='read_start', ascending=True, inplace=True)
     app_data['label_dt'].update(state_label_dtypes)
 
@@ -443,38 +443,57 @@ def create_figure(x_data, y_data, wdg, app_vars):
     p.xaxis.major_label_orientation = math.radians(45)
     p.x_range.range_padding = 0.01
 
+    y_min = np.amin(data['y'])
+    y_max = np.amax(data['y'])
+    pad = (y_max - y_min)*0.1 / 2
+    p.y_range = Range1d(y_min - pad, y_max + pad)
+
     if wdg['toggle_y_axis'].active:
         p.y_range = Range1d(int(wdg['po_y_min'].value), int(wdg['po_y_max'].value))
-
     if wdg['toggle_annotations'].active:
         # Here labels are thinned out
+        app_data['label_df']['mc_active_map'] = app_data['label_df']['modal_classification'].map(app_data['label_mp'])
+        app_data['label_df']['mc_label_map'] = app_data['label_df']['modal_classification'].map(app_data['label_dt'])
         slim_label_df = app_data['label_df'][
             (app_data['label_df']['read_start'] >= app_vars['start_time']) &
             (app_data['label_df']['read_start'] <= app_vars['end_time'])
             ]
-        for index, label in slim_label_df.iterrows():
-            if label.modal_classification in app_data['label_mp']:
-                if app_data['label_mp'][label.modal_classification] in wdg['label_filter'].active:
-                    event_line = Span(
-                        location=label.read_start,
-                        dimension='height',
-                        line_color='green',
-                        line_dash='dashed',
-                        line_width=1
-                    )
-                    p.add_layout(event_line)
-                    labels = Label(
-                        x=label.read_start,
-                        y=int(wdg['label_height'].value),
-                        text="{cl} - {ri}".format(cl=app_data['label_dt'][label.modal_classification], ri=label.read_id),
-                        level='glyph',
-                        x_offset=0,
-                        y_offset=0,
-                        render_mode='canvas',
-                        angle=-270,
-                        angle_units='deg'
-                    )
-                    p.add_layout(labels)
+        # Use pd.isin to remove unwanted annotations from the slimmed df
+        slim_label_df = slim_label_df[slim_label_df['mc_active_map'].isin(wdg['label_filter'].active) == True]
+        line_x_values = np.vstack((slim_label_df['read_start'].values, slim_label_df['read_start'].values)).T
+        tmp_list = np.full((1, len(line_x_values)), -10000)
+        line_y_values = np.vstack((tmp_list, tmp_list * -1)).T
+        # print(type(line_x_values))
+        p.multi_line(line_x_values.tolist(), line_y_values.tolist(), line_dash='dashed', color='green', line_width=1)
+        # Map modal_classifications onto df
+        # get coordinates and vstack them to produce [[x, x], [x, x]...]
+        # np.arange for y values
+        # for index, label in slim_label_df.iterrows():
+        #     # if m_c number is a key in label_mp dict
+        #     if label.modal_classification in app_data['label_mp']:
+        #         # if
+        #         if app_data['label_mp'][label.modal_classification] in wdg['label_filter'].active:
+        #             event_line = Span(
+        #                 location=label.read_start,
+        #                 dimension='height',
+        #                 line_color='green',
+        #                 line_dash='dashed',
+        #                 line_width=1
+        #             )
+        #             p.add_layout(event_line)
+        #             labels = Label(
+        #                 x=label.read_start,
+        #                 y=int(wdg['label_height'].value),
+        #                 text="{cl} - {ri}".format(cl=app_data['label_dt'][label.modal_classification], ri=label.read_id),
+        #                 level='glyph',
+        #                 x_offset=0,
+        #                 y_offset=0,
+        #                 render_mode='canvas',
+        #                 angle=-270,
+        #                 angle_units='deg'
+        #             )
+        #             p.add_layout(labels)
+
     return p
 
 
