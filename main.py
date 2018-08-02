@@ -19,6 +19,7 @@ config.read(str(Path(Path(__file__).resolve().parent / 'config.ini')))
 cfg_po = config['plot_opts']
 cfg_dr = config['data']
 cfg_lo = config['labels']
+output_backend = {'canvas', 'svg', 'webgl'}
 
 
 """
@@ -30,12 +31,16 @@ if cfg_dr[out] == '':
 
 """
 
-output_backend = {'canvas', 'svg', 'webgl'}
-
 
 def init_wdg_dict():
+    """
+    Initialise the widget dictionary, adds in the initial bulkfile selector
+    Returns
+    -------
+
+    """
     wdg_dict = OrderedDict()
-    wdg_dict['file_list'] = Select(title="Select file:", options=app_data['app_vars']['files'])
+    wdg_dict['file_list'] = Select(title="Select bulk-file:", options=app_data['app_vars']['files'])
     wdg_dict['file_list'].on_change('value', update_file)
     return wdg_dict
 
@@ -60,6 +65,7 @@ def update_file(attr, old, new):
     file_src = app_data['wdg_dict']['file_list'].value
     file_wdg = app_data['wdg_dict']['file_list']
     file_list = app_data['app_vars']['files']
+    map_file_list = app_data['app_vars']['map_files']
     # Clear old bulkfile data and build new data structures
     app_data.clear()
     app_data['app_vars'] = {}
@@ -68,6 +74,7 @@ def update_file(attr, old, new):
     app_data['file_src'] = Path(Path(cfg_dr['dir']) / file_src)
     app_data['INIT'] = True
     app_data['app_vars']['files'] = file_list
+    app_data['app_vars']['map_files'] = map_file_list
 
     (app_data['bulkfile'],
      app_data['app_vars']['sf'],
@@ -84,6 +91,7 @@ def update_file(attr, old, new):
     # add fastq and position inputs
     app_data['wdg_dict'] = init_wdg_dict()
     app_data['wdg_dict']['file_list'] = file_wdg
+    app_data['wdg_dict']['maps_list'] = Select(title="Select mapping file:", options=map_file_list)
     app_data['wdg_dict']['position_label'] = Div(text='Position', css_classes=['position-dropdown', 'help-text'])
     app_data['wdg_dict']['position_text'] = Div(
         text="""Enter a position in your bulkfile as <code>channel:start_time-end_time</code> or a
@@ -97,18 +105,25 @@ def update_file(attr, old, new):
         css_classes=['position-label']
     )
 
+    app_data['wdg_dict']['maps_list'].on_change('value', read_bmf)
     app_data['wdg_dict']['position'].on_change("value", parse_position)
 
     layout.children[0] = widgetbox(list(app_data['wdg_dict'].values()), width=int(cfg_po['wdg_width']))
 
 
+def read_bmf(attr, old, new):
+    app_data['bmf'] = pd.read_csv(Path(Path(cfg_dr['map']) / new), sep='\t')
+    # filter mappings to just this run
+    app_data['bmf'] = app_data['bmf'][app_data['bmf']['run_id'] == app_data['app_vars']['Run ID']]
+    return
+
+
 def open_bulkfile(path):
-    """"""
     # !!! add in check to see if this is a ONT bulkfile
     # Open bulkfile in read-only mode
-    file = h5py.File(path, "r")
+    open_file = h5py.File(path, "r")
     # Get sample frequency, how many data points are collected each second
-    sf = int(file["UniqueGlobalKey"]["context_tags"].attrs["sample_frequency"].decode('utf8'))
+    sf = int(open_file["UniqueGlobalKey"]["context_tags"].attrs["sample_frequency"].decode('utf8'))
     attributes = OrderedDict([
         ('tracking_id', [('Experiment', 'sample_id'), ('Flowcell ID', 'flow_cell_id'), ('MinKNOW version', 'version'),
                          ('Protocols version', 'protocols_version'), ('MinION ID', 'device_id'),
@@ -119,13 +134,13 @@ def open_bulkfile(path):
     for k, v in attributes.items():
         for attribute in v:
             try:
-                app_data['app_vars'][attribute[0]] = file['UniqueGlobalKey'][k].attrs[attribute[1]].decode('utf8')
+                app_data['app_vars'][attribute[0]] = open_file['UniqueGlobalKey'][k].attrs[attribute[1]].decode('utf8')
                 if attribute[1] == 'exp_start_time':
                     app_data['app_vars'][attribute[0]] = parser.parse(
                         app_data['app_vars'][attribute[0]]).strftime('%d-%b-%Y %H:%M:%S')
             except KeyError:
                 app_data['app_vars'][attribute[0]] = 'N/A'
-    return file, sf, attributes
+    return open_file, sf, attributes
 
 
 # noinspection PyUnboundLocalVariable
@@ -443,68 +458,50 @@ def create_figure(x_data, y_data, wdg, app_vars):
     p.xaxis.major_label_orientation = math.radians(45)
     p.x_range.range_padding = 0.01
 
+    # set padding manually
     y_min = np.amin(data['y'])
     y_max = np.amax(data['y'])
-    pad = (y_max - y_min)*0.1 / 2
-    p.y_range = Range1d(y_min - pad, y_max + pad)
+    lower_pad = (y_max - y_min) * 0.1 / 2
+    upper_pad = (y_max - y_min) / 2
+    p.y_range = Range1d(y_min - lower_pad, y_max + upper_pad)
+    # set mapping track midpoints
+    upper_mapping = upper_pad / 4 * 3 + y_max
+    lower_mapping = upper_pad / 4 + y_max
 
     if wdg['toggle_y_axis'].active:
         p.y_range = Range1d(int(wdg['po_y_min'].value), int(wdg['po_y_max'].value))
     if wdg['toggle_annotations'].active:
-        # Here labels are thinned out
+        # Map modal_classifications onto df
         app_data['label_df']['mc_active_map'] = app_data['label_df']['modal_classification'].map(app_data['label_mp'])
         app_data['label_df']['mc_label_map'] = app_data['label_df']['modal_classification'].map(app_data['label_dt'])
+        # Here labels are thinned out
         slim_label_df = app_data['label_df'][
             (app_data['label_df']['read_start'] >= app_vars['start_time']) &
             (app_data['label_df']['read_start'] <= app_vars['end_time'])
             ]
         # Use pd.isin to remove unwanted annotations from the slimmed df
         slim_label_df = slim_label_df[slim_label_df['mc_active_map'].isin(wdg['label_filter'].active) == True]
+        # get coordinates and vstack them to produce [[x, x], [x, x]...]
         line_x_values = np.vstack((slim_label_df['read_start'].values, slim_label_df['read_start'].values)).T
         tmp_list = np.full((1, len(line_x_values)), -10000)
         line_y_values = np.vstack((tmp_list, tmp_list * -1)).T
+        # Add all vertical lines as multi_line
         p.multi_line(line_x_values.tolist(), line_y_values.tolist(), line_dash='dashed', color='green', line_width=1)
-        # Map modal_classifications onto df
-        # get coordinates and vstack them to produce [[x, x], [x, x]...]
-        # np.arange for y values
+        # combine series to form label
+        slim_label_df['label'] = slim_label_df['mc_label_map'] + " - " + slim_label_df['read_id'].astype('str')
+        # Create ColumnDataSource combining labels and coordinates
         label_source = ColumnDataSource(
             data=dict(
                 x=slim_label_df['read_start'].values,
                 y=np.full((len(slim_label_df), 1), int(wdg['label_height'].value)),
-                t=slim_label_df['mc_label_map'].values
+                t=slim_label_df['label'].values
             )
         )
-
+        # Add all labels as a label set
         labels = LabelSet(x='x', y='y', text='t', level='glyph',
                           x_offset=0, y_offset=0, source=label_source,
                           render_mode='canvas', angle=-270, angle_units='deg')
         p.add_layout(labels)
-
-        # for index, label in slim_label_df.iterrows():
-        #     # if m_c number is a key in label_mp dict
-        #     if label.modal_classification in app_data['label_mp']:
-        #         # if
-        #         if app_data['label_mp'][label.modal_classification] in wdg['label_filter'].active:
-        #             event_line = Span(
-        #                 location=label.read_start,
-        #                 dimension='height',
-        #                 line_color='green',
-        #                 line_dash='dashed',
-        #                 line_width=1
-        #             )
-        #             p.add_layout(event_line)
-        #             labels = Label(
-        #                 x=label.read_start,
-        #                 y=int(wdg['label_height'].value),
-        #                 text="{cl} - {ri}".format(cl=app_data['label_dt'][label.modal_classification], ri=label.read_id),
-        #                 level='glyph',
-        #                 x_offset=0,
-        #                 y_offset=0,
-        #                 render_mode='canvas',
-        #                 angle=-270,
-        #                 angle_units='deg'
-        #             )
-        #             p.add_layout(labels)
 
     return p
 
@@ -631,6 +628,7 @@ def export_data():
 app_data = {
     'file_src': None,  # bulkfile path (string)
     'bulkfile': None,  # bulkfile object
+    'bmf': None,  # bmf dataframe
     'x_data': None,  # numpy ndarray time points
     'y_data': None,  # numpy ndarray signal data
     'label_df': None,  # pandas df of signal labels
@@ -660,6 +658,9 @@ toggle_inputs = ['toggle_y_axis', 'toggle_annotations', 'toggle_smoothing']
 app_data['app_vars']['files'] = []
 p = Path(cfg_dr['dir'])
 app_data['app_vars']['files'] = [(x.name, x.name) for x in p.iterdir() if x.suffix == '.fast5']
+m = Path(cfg_dr['map'])
+app_data['app_vars']['map_files'] = [(x.name, x.name) for x in m.iterdir() if x.suffix == '.bmf']
+app_data['app_vars']['map_files'].insert(0, ("", "--"))
 # check files are useable by h5py
 for index, file in enumerate(app_data['app_vars']['files']):
     file = file[0]
