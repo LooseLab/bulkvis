@@ -112,9 +112,14 @@ def update_file(attr, old, new):
 
 
 def read_bmf(attr, old, new):
-    app_data['bmf'] = pd.read_csv(Path(Path(cfg_dr['map']) / new), sep='\t')
-    # filter mappings to just this run
-    app_data['bmf'] = app_data['bmf'][app_data['bmf']['run_id'] == app_data['app_vars']['Run ID']]
+    try:
+        app_data['bmf'] = pd.read_csv(Path(Path(cfg_dr['map']) / new), sep='\t')
+        # filter mappings to just this run
+        app_data['bmf'] = app_data['bmf'][app_data['bmf']['run_id'] == app_data['app_vars']['Run ID']]
+    except FileNotFoundError:
+        pass
+    except Exception as e:
+        print(e)
     return
 
 
@@ -199,7 +204,10 @@ def parse_position(attr, old, new):
         times = coords[1].split("-")
         channel_num = coords[0]
         channel_str = "Channel_{num}".format(num=channel_num)
-        (start_time, end_time) = times[0], times[1]
+        (start_time, end_time) = int(times[0]), int(times[1])
+        if end_time - start_time <= 0:
+            input_error(app_data['wdg_dict']['position'], 'add')
+            return
     else:
         input_error(app_data['wdg_dict']['position'], 'add')
         return
@@ -400,6 +408,36 @@ def build_widgets():
 
 
 def create_figure(x_data, y_data, wdg, app_vars):
+
+
+    def vline(x_coords, y_upper, y_lower):
+        # Return a dataset that can plot vertical lines
+        x_values = np.vstack((x_coords, x_coords)).T
+        y_upper_list = np.full((1, len(x_values)), y_upper)
+        y_lower_list = np.full((1, len(x_values)), y_lower)
+        y_values = np.vstack((y_lower_list, y_upper_list)).T
+        return x_values.tolist(), y_values.tolist()
+
+
+    def hlines(y_coords, x_lower, x_upper):
+        """
+
+        Parameters
+        ----------
+        y_coords: (int, float) height to plot lines at
+        x_lower: (int, float) lower x coord
+        x_upper: (int, float) upper x coord
+
+        Returns
+        -------
+
+        """
+        x_values = np.vstack((x_lower, x_upper)).T
+        y_values_list = np.full((1, len(x_values)), y_coords)
+        y_values = np.vstack((y_values_list, y_values_list)).T
+        return x_values.tolist(), y_values.tolist()
+    
+    
     if wdg["toggle_smoothing"].active:
         w_range = app_vars['duration']
         divisor = math.e ** 2.5
@@ -461,13 +499,83 @@ def create_figure(x_data, y_data, wdg, app_vars):
     # set padding manually
     y_min = np.amin(data['y'])
     y_max = np.amax(data['y'])
-    lower_pad = (y_max - y_min) * 0.1 / 2
-    upper_pad = (y_max - y_min) / 2
-    p.y_range = Range1d(y_min - lower_pad, y_max + upper_pad)
-    # set mapping track midpoints
-    upper_mapping = upper_pad / 4 * 3 + y_max
-    lower_mapping = upper_pad / 4 + y_max
+    pad = (y_max - y_min)*0.1 / 2
+    p.y_range = Range1d(y_min - pad, y_max + pad)
+    try:
+        app_data['bmf']
+    except NameError:
+        bmf_set = False
+    except KeyError:
+        bmf_set = False
+    else:
+        bmf_set = True
+    if bmf_set and wdg['toggle_annotations'].active:
+        # set padding manually
+        lower_pad = (y_max - y_min) * 0.1 / 2
+        upper_pad = (y_max - y_min) / 2
+        p.y_range = Range1d(y_min - lower_pad, y_max + upper_pad)
+        # set mapping track midpoints
+        upper_mapping = upper_pad / 4 * 3 + y_max
+        lower_mapping = upper_pad / 4 + y_max
+        lower_mapping = int(wdg['label_height'].value) - 50
+        # Select only this channel
+        slim_bmf = app_data['bmf'][app_data['bmf']['channel'] == app_vars['channel_num']]
+        # Select the current viewed range
+        slim_bmf = slim_bmf[
+            (
+                    (slim_bmf['start_time'] > app_vars['start_time']) &
+                    (slim_bmf['end_time'] < app_vars['end_time'])
+            ) |
+            (
+                    (slim_bmf['start_time'] < app_vars['start_time']) &
+                    (slim_bmf['end_time'] < app_vars['end_time']) &
+                    (slim_bmf['end_time'] > app_vars['start_time'])
+            ) |
+            (
+                    (slim_bmf['start_time'] > app_vars['start_time']) &
+                    (slim_bmf['end_time'] > app_vars['end_time']) &
+                    (slim_bmf['start_time'] < app_vars['end_time'])
+            )
+        ]
+        slim_bmf['start_time'] = slim_bmf['start_time'].where(slim_bmf['start_time'] > app_vars['start_time'], app_vars['start_time'])
+        slim_bmf['end_time'] = slim_bmf['end_time'].where(slim_bmf['end_time'] < app_vars['end_time'], app_vars['end_time'])
 
+        slim_bmf['height'] = lower_mapping
+        slim_bmf['offset'] = np.ones(len(slim_bmf)) * 5 + slim_bmf.groupby(['start_time', 'end_time']).cumcount() * 15
+        # Convert slim_bmf to ColDataSrc
+        mapping_source = ColumnDataSource(data=slim_bmf.to_dict(orient='list'))
+        # Add labels to LabelSet
+        mapping_labels = LabelSet(x='start_time', y='height', text='label', level='glyph', x_offset=5,
+                                  y_offset='offset', source=mapping_source, render_mode='canvas')
+        p.add_layout(mapping_labels)
+        # Add some colour here
+        # Forward Vertical lines => blue
+        p_x, p_y = vline(np.concatenate([slim_bmf['start_time'].where(slim_bmf['strand'] == '+').dropna().values,
+                                         slim_bmf['end_time'].where(slim_bmf['strand'] == '+').dropna().values]),
+                         lower_mapping + 20,
+                         lower_mapping - 20
+                         )
+        p.multi_line(p_x, p_y, line_dash='solid', color='blue', line_width=1)
+        # Reverse Vertical lines => red
+        p_x, p_y = vline(np.concatenate([slim_bmf['start_time'].where(slim_bmf['strand'] == '-').dropna().values,
+                                         slim_bmf['end_time'].where(slim_bmf['strand'] == '-').dropna().values]),
+                         lower_mapping + 20,
+                         lower_mapping - 20
+                         )
+        p.multi_line(p_x, p_y, line_dash='solid', color='red', line_width=1)
+        # Horizontal lines
+        p_x, p_y = hlines(lower_mapping,
+                          slim_bmf['start_time'].where(slim_bmf['strand'] == '+').dropna(),
+                          slim_bmf['end_time'].where(slim_bmf['strand'] == '+').dropna()
+        )
+        p.multi_line(p_x, p_y, line_dash='solid', color='blue', line_width=1)
+        # Horizontal lines
+        p_x, p_y = hlines(lower_mapping,
+                          slim_bmf['start_time'].where(slim_bmf['strand'] == '-').dropna(),
+                          slim_bmf['end_time'].where(slim_bmf['strand'] == '-').dropna()
+        )
+        p.multi_line(p_x, p_y, line_dash='solid', color='red', line_width=1)
+    
     if wdg['toggle_y_axis'].active:
         p.y_range = Range1d(int(wdg['po_y_min'].value), int(wdg['po_y_max'].value))
     if wdg['toggle_annotations'].active:
