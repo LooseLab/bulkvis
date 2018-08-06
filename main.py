@@ -91,7 +91,7 @@ def update_file(attr, old, new):
     # add fastq and position inputs
     app_data['wdg_dict'] = init_wdg_dict()
     app_data['wdg_dict']['file_list'] = file_wdg
-    app_data['wdg_dict']['maps_list'] = Select(title="Select mapping file:", options=map_file_list)
+    # app_data['wdg_dict']['maps_list'] = Select(title="Select mapping file:", options=map_file_list)
     app_data['wdg_dict']['position_label'] = Div(text='Position', css_classes=['position-dropdown', 'help-text'])
     app_data['wdg_dict']['position_text'] = Div(
         text="""Enter a position in your bulkfile as <code>channel:start_time-end_time</code> or a
@@ -104,16 +104,16 @@ def update_file(attr, old, new):
         placeholder="e.g 391:120-150 or complete FASTQ header",
         css_classes=['position-label']
     )
-
-    app_data['wdg_dict']['maps_list'].on_change('value', read_bmf)
+    read_bmf(app_data['app_vars']['Run ID'])
     app_data['wdg_dict']['position'].on_change("value", parse_position)
 
     layout.children[0] = widgetbox(list(app_data['wdg_dict'].values()), width=int(cfg_po['wdg_width']))
 
 
-def read_bmf(attr, old, new):
+def read_bmf(run_id):
+    run_id = run_id + '.bmf'
     try:
-        app_data['bmf'] = pd.read_csv(Path(Path(cfg_dr['map']) / new), sep='\t')
+        app_data['bmf'] = pd.read_csv(Path(Path(cfg_dr['map']) / run_id), sep='\t')
         # filter mappings to just this run
         app_data['bmf'] = app_data['bmf'][app_data['bmf']['run_id'] == app_data['app_vars']['Run ID']]
     except FileNotFoundError:
@@ -270,29 +270,6 @@ def get_annotations(path, fields, enum_field):
         data_dtypes = {v: k for k, v in dataset_dtype.items()}
     labels_df = pd.DataFrame(data=data_labels)
     return labels_df, data_dtypes
-
-
-def update():
-    update_data(
-        app_data['bulkfile'],
-        app_data['app_vars']
-    )
-    if app_data['INIT']:
-        build_widgets()
-        layout.children[0] = widgetbox(list(app_data['wdg_dict'].values()), width=int(cfg_po['wdg_width']))
-        app_data['INIT'] = False
-    app_data['wdg_dict']['duration'].text = "Duration: {d} seconds".format(d=app_data['app_vars']['duration'])
-    app_data['wdg_dict']['toggle_smoothing'].active = True
-    layout.children[1] = create_figure(
-        app_data['x_data'],
-        app_data['y_data'],
-        app_data['wdg_dict'],
-        app_data['app_vars']
-    )
-
-
-def update_other(attr, old, new):
-    update()
 
 
 def build_widgets():
@@ -666,6 +643,29 @@ def input_error(widget, mode):
             del widget.css_classes[-1]
     else:
         print("mode not recognised")
+
+
+def update():
+    update_data(
+        app_data['bulkfile'],
+        app_data['app_vars']
+    )
+    if app_data['INIT']:
+        build_widgets()
+        layout.children[0] = widgetbox(list(app_data['wdg_dict'].values()), width=int(cfg_po['wdg_width']))
+        app_data['INIT'] = False
+    app_data['wdg_dict']['duration'].text = "Duration: {d} seconds".format(d=app_data['app_vars']['duration'])
+    app_data['wdg_dict']['toggle_smoothing'].active = True
+    layout.children[1] = create_figure(
+        app_data['x_data'],
+        app_data['y_data'],
+        app_data['wdg_dict'],
+        app_data['app_vars']
+    )
+
+
+def update_other(attr, old, new):
+    update()
 
 
 def update_toggle(attr, old, new):
