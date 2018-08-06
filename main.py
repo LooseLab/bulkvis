@@ -9,7 +9,7 @@ import h5py
 import numpy as np
 import pandas as pd
 from bokeh.layouts import row, widgetbox
-from bokeh.models import TextInput, Toggle, Div, Range1d, Label, Span, Title, LabelSet
+from bokeh.models import TextInput, Toggle, Div, Range1d, Label, Span, Title, LabelSet, RadioButtonGroup
 from bokeh.models import CheckboxGroup, Dropdown, PreText, Select, Button, ColumnDataSource
 from bokeh.plotting import curdoc, figure
 from utils.stitch import export_read_file
@@ -312,6 +312,13 @@ def build_widgets():
             print("label {v} is in your bulk-file but not defined in config.ini".format(v=v[1]))
             check_active.append(k)
 
+    if len(check_active) == len(check_labels):
+        filter_toggle_active = 0
+    elif len(check_active) == 0:
+        filter_toggle_active = 1
+    else:
+        filter_toggle_active = None
+
     wdg = app_data['wdg_dict']
     wdg['duration'] = PreText(text="Duration: {d} seconds".format(d=app_data['app_vars']['duration']), css_classes=['duration_pre'])
     wdg['navigation_label'] = Div(text='Navigation:', css_classes=['navigation-dropdown', 'help-text'])
@@ -363,6 +370,13 @@ def build_widgets():
         css_classes=['toggle_button_g_r', 'filter-drop'],
         active=True
     )
+    wdg['toggle_mappings'] = Toggle(
+        label="Display mappings",
+        button_type="danger",
+        css_classes=['toggle_button_g_r', 'filter-drop'],
+        active=True
+    )
+    wdg['filter_toggle_group'] = RadioButtonGroup(labels=["Select all", "Select none"], active=filter_toggle_active, css_classes=['filter-drop'])
     wdg['label_filter'] = CheckboxGroup(labels=check_labels, active=check_active, css_classes=['filter-drop'])
     
     wdg['plot_options'] = Div(text='Plot adjustments', css_classes=['adjust-dropdown', 'caret-down'])
@@ -395,7 +409,8 @@ def build_widgets():
         active=True
     )
 
-    wdg['label_filter'].on_change('active', update_other)
+    wdg['label_filter'].on_change('active', update_checkboxes)
+    wdg['filter_toggle_group'].on_change('active', update_toggle)
     wdg['jump_next'].on_click(next_update)
     wdg['jump_prev'].on_click(prev_update)
     wdg['save_read_file'].on_click(export_data)
@@ -455,9 +470,12 @@ def create_figure(x_data, y_data, wdg, app_vars):
     x_data = np.delete(x_data, lesser_delete_index)
     y_data = np.delete(y_data, lesser_delete_index)
 
+    x_data = x_data[::thin_factor]
+    y_data = y_data[::thin_factor]
+
     data = {
-        'x': x_data[::thin_factor],
-        'y': y_data[::thin_factor],
+        'x': x_data,
+        'y': y_data,
     }
 
     source = ColumnDataSource(data=data)
@@ -509,14 +527,14 @@ def create_figure(x_data, y_data, wdg, app_vars):
         bmf_set = False
     else:
         bmf_set = True
-    if bmf_set and wdg['toggle_annotations'].active:
+    if bmf_set and wdg['toggle_mappings'].active:
         # set padding manually
-        lower_pad = (y_max - y_min) * 0.1 / 2
-        upper_pad = (y_max - y_min) / 2
-        p.y_range = Range1d(y_min - lower_pad, y_max + upper_pad)
+        # lower_pad = (y_max - y_min) * 0.1 / 2
+        # upper_pad = (y_max - y_min) / 2
+        # p.y_range = Range1d(y_min - lower_pad, y_max + upper_pad)
         # set mapping track midpoints
-        upper_mapping = upper_pad / 4 * 3 + y_max
-        lower_mapping = upper_pad / 4 + y_max
+        # upper_mapping = upper_pad / 4 * 3 + y_max
+        # lower_mapping = upper_pad / 4 + y_max
         lower_mapping = int(wdg['label_height'].value) - 50
         # Select only this channel
         slim_bmf = app_data['bmf'][app_data['bmf']['channel'] == app_vars['channel_num']]
@@ -650,6 +668,20 @@ def input_error(widget, mode):
         print("mode not recognised")
 
 
+def update_toggle(attr, old, new):
+    if new == 0:
+        app_data['wdg_dict']['label_filter'].active = list(np.arange(0, len(app_data['wdg_dict']['label_filter'].labels), 1))
+    elif new == 1:
+        app_data['wdg_dict']['label_filter'].active = []
+    update()
+
+
+def update_checkboxes(attr, old, new):
+    if len(new) != len(app_data['wdg_dict']['label_filter'].labels) and len(new) != 0:
+        app_data['wdg_dict']['filter_toggle_group'].active = None
+    update()
+
+
 def next_update(value):
     if value != 'reset':
         value = int(value)
@@ -761,7 +793,7 @@ app_data = {
 }
 
 int_inputs = ['po_width', 'po_height', 'po_y_min', 'po_y_max', 'label_height']
-toggle_inputs = ['toggle_y_axis', 'toggle_annotations', 'toggle_smoothing']
+toggle_inputs = ['toggle_y_axis', 'toggle_annotations', 'toggle_mappings', 'toggle_smoothing']
 
 app_data['app_vars']['files'] = []
 p = Path(cfg_dr['dir'])
