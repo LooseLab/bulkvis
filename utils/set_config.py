@@ -30,7 +30,6 @@ def get_args():
     in_args.add_argument("-b", "--bulkfile",
                          help="A bulk-fast5 file to get labels from",
                          type=str,
-                         default="",
                          required=True,
                          metavar=''
                          )

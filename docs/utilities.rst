@@ -195,7 +195,7 @@ pod_plot.py
       -D , --out-dir     Specify the output directory where plots will be saved.
                          Defaults to current working directory
 
-bulk_stats.py
+bulk_info.py
 -------------
 .. code-block:: bash
 
