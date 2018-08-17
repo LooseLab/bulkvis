@@ -512,7 +512,7 @@ def create_figure(x_data, y_data, wdg, app_vars):
         # set mapping track midpoints
         # upper_mapping = upper_pad / 4 * 3 + y_max
         # lower_mapping = upper_pad / 4 + y_max
-        lower_mapping = int(wdg['label_height'].value) - 50
+        lower_mapping = int(wdg['label_height'].value) + 750
         # Select only this channel
         slim_bmf = app_data['bmf'][app_data['bmf']['channel'] == app_vars['channel_num']]
         # Select the current viewed range
