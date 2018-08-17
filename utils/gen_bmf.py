@@ -94,7 +94,8 @@ def get_args():
             title='Output:'
     )
     out_args.add_argument('--bmf',
-                          help='''Specify the output folder, where files will be written as <run_id>.bmf''',
+                          help='''Specify the output folder, where files will be written as <run_id>.bmf. This 
+                                  should be the \'map\' path specified in the config.ini''',
                           type=full_path,
                           metavar=''
                           )
