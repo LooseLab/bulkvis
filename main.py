@@ -9,7 +9,7 @@ import h5py
 import numpy as np
 import pandas as pd
 from bokeh.layouts import row, widgetbox
-from bokeh.models import TextInput, Toggle, Div, Range1d, Label, Span, Title
+from bokeh.models import TextInput, Toggle, Div, Range1d, Label, Span, Title, LabelSet, RadioButtonGroup
 from bokeh.models import CheckboxGroup, Dropdown, PreText, Select, Button, ColumnDataSource
 from bokeh.plotting import curdoc, figure
 from utils.stitch import export_read_file
@@ -19,6 +19,7 @@ config.read(str(Path(Path(__file__).resolve().parent / 'config.ini')))
 cfg_po = config['plot_opts']
 cfg_dr = config['data']
 cfg_lo = config['labels']
+output_backend = {'canvas', 'svg', 'webgl'}
 
 
 """
@@ -30,12 +31,16 @@ if cfg_dr[out] == '':
 
 """
 
-output_backend = {'canvas', 'svg', 'webgl'}
-
 
 def init_wdg_dict():
+    """
+    Initialise the widget dictionary, adds in the initial bulkfile selector
+    Returns
+    -------
+
+    """
     wdg_dict = OrderedDict()
-    wdg_dict['file_list'] = Select(title="Select file:", options=app_data['app_vars']['files'])
+    wdg_dict['file_list'] = Select(title="Select bulk-file:", options=app_data['app_vars']['files'])
     wdg_dict['file_list'].on_change('value', update_file)
     return wdg_dict
 
@@ -60,6 +65,7 @@ def update_file(attr, old, new):
     file_src = app_data['wdg_dict']['file_list'].value
     file_wdg = app_data['wdg_dict']['file_list']
     file_list = app_data['app_vars']['files']
+    map_file_list = app_data['app_vars']['map_files']
     # Clear old bulkfile data and build new data structures
     app_data.clear()
     app_data['app_vars'] = {}
@@ -68,6 +74,7 @@ def update_file(attr, old, new):
     app_data['file_src'] = Path(Path(cfg_dr['dir']) / file_src)
     app_data['INIT'] = True
     app_data['app_vars']['files'] = file_list
+    app_data['app_vars']['map_files'] = map_file_list
 
     (app_data['bulkfile'],
      app_data['app_vars']['sf'],
@@ -84,6 +91,7 @@ def update_file(attr, old, new):
     # add fastq and position inputs
     app_data['wdg_dict'] = init_wdg_dict()
     app_data['wdg_dict']['file_list'] = file_wdg
+    # app_data['wdg_dict']['maps_list'] = Select(title="Select mapping file:", options=map_file_list)
     app_data['wdg_dict']['position_label'] = Div(text='Position', css_classes=['position-dropdown', 'help-text'])
     app_data['wdg_dict']['position_text'] = Div(
         text="""Enter a position in your bulkfile as <code>channel:start_time-end_time</code> or a
@@ -96,19 +104,31 @@ def update_file(attr, old, new):
         placeholder="e.g 391:120-150 or complete FASTQ header",
         css_classes=['position-label']
     )
-
+    read_bmf(app_data['app_vars']['Run ID'])
     app_data['wdg_dict']['position'].on_change("value", parse_position)
 
     layout.children[0] = widgetbox(list(app_data['wdg_dict'].values()), width=int(cfg_po['wdg_width']))
 
 
+def read_bmf(run_id):
+    run_id = run_id + '.bmf'
+    try:
+        app_data['bmf'] = pd.read_csv(Path(Path(cfg_dr['map']) / run_id), sep='\t')
+        # filter mappings to just this run
+        app_data['bmf'] = app_data['bmf'][app_data['bmf']['run_id'] == app_data['app_vars']['Run ID']]
+    except FileNotFoundError:
+        pass
+    except Exception as e:
+        print(e)
+    return
+
+
 def open_bulkfile(path):
-    """"""
     # !!! add in check to see if this is a ONT bulkfile
     # Open bulkfile in read-only mode
-    file = h5py.File(path, "r")
+    open_file = h5py.File(path, "r")
     # Get sample frequency, how many data points are collected each second
-    sf = int(file["UniqueGlobalKey"]["context_tags"].attrs["sample_frequency"].decode('utf8'))
+    sf = int(open_file["UniqueGlobalKey"]["context_tags"].attrs["sample_frequency"].decode('utf8'))
     attributes = OrderedDict([
         ('tracking_id', [('Experiment', 'sample_id'), ('Flowcell ID', 'flow_cell_id'), ('MinKNOW version', 'version'),
                          ('Protocols version', 'protocols_version'), ('MinION ID', 'device_id'),
@@ -119,13 +139,13 @@ def open_bulkfile(path):
     for k, v in attributes.items():
         for attribute in v:
             try:
-                app_data['app_vars'][attribute[0]] = file['UniqueGlobalKey'][k].attrs[attribute[1]].decode('utf8')
+                app_data['app_vars'][attribute[0]] = open_file['UniqueGlobalKey'][k].attrs[attribute[1]].decode('utf8')
                 if attribute[1] == 'exp_start_time':
                     app_data['app_vars'][attribute[0]] = parser.parse(
                         app_data['app_vars'][attribute[0]]).strftime('%d-%b-%Y %H:%M:%S')
             except KeyError:
                 app_data['app_vars'][attribute[0]] = 'N/A'
-    return file, sf, attributes
+    return open_file, sf, attributes
 
 
 # noinspection PyUnboundLocalVariable
@@ -184,7 +204,10 @@ def parse_position(attr, old, new):
         times = coords[1].split("-")
         channel_num = coords[0]
         channel_str = "Channel_{num}".format(num=channel_num)
-        (start_time, end_time) = times[0], times[1]
+        (start_time, end_time) = int(times[0]), int(times[1])
+        if end_time - start_time <= 0:
+            input_error(app_data['wdg_dict']['position'], 'add')
+            return
     else:
         input_error(app_data['wdg_dict']['position'], 'add')
         return
@@ -249,29 +272,6 @@ def get_annotations(path, fields, enum_field):
     return labels_df, data_dtypes
 
 
-def update():
-    update_data(
-        app_data['bulkfile'],
-        app_data['app_vars']
-    )
-    if app_data['INIT']:
-        build_widgets()
-        layout.children[0] = widgetbox(list(app_data['wdg_dict'].values()), width=int(cfg_po['wdg_width']))
-        app_data['INIT'] = False
-    app_data['wdg_dict']['duration'].text = "Duration: {d} seconds".format(d=app_data['app_vars']['duration'])
-    app_data['wdg_dict']['toggle_smoothing'].active = True
-    layout.children[1] = create_figure(
-        app_data['x_data'],
-        app_data['y_data'],
-        app_data['wdg_dict'],
-        app_data['app_vars']
-    )
-
-
-def update_other(attr, old, new):
-    update()
-
-
 def build_widgets():
     """"""
     check_labels = []
@@ -288,6 +288,13 @@ def build_widgets():
         else:
             print("label {v} is in your bulk-file but not defined in config.ini".format(v=v[1]))
             check_active.append(k)
+
+    if len(check_active) == len(check_labels):
+        filter_toggle_active = 0
+    elif len(check_active) == 0:
+        filter_toggle_active = 1
+    else:
+        filter_toggle_active = None
 
     wdg = app_data['wdg_dict']
     wdg['duration'] = PreText(text="Duration: {d} seconds".format(d=app_data['app_vars']['duration']), css_classes=['duration_pre'])
@@ -340,6 +347,13 @@ def build_widgets():
         css_classes=['toggle_button_g_r', 'filter-drop'],
         active=True
     )
+    wdg['toggle_mappings'] = Toggle(
+        label="Display mappings",
+        button_type="danger",
+        css_classes=['toggle_button_g_r', 'filter-drop'],
+        active=True
+    )
+    wdg['filter_toggle_group'] = RadioButtonGroup(labels=["Select all", "Select none"], active=filter_toggle_active, css_classes=['filter-drop'])
     wdg['label_filter'] = CheckboxGroup(labels=check_labels, active=check_active, css_classes=['filter-drop'])
     
     wdg['plot_options'] = Div(text='Plot adjustments', css_classes=['adjust-dropdown', 'caret-down'])
@@ -372,7 +386,8 @@ def build_widgets():
         active=True
     )
 
-    wdg['label_filter'].on_change('active', update_other)
+    wdg['label_filter'].on_change('active', update_checkboxes)
+    wdg['filter_toggle_group'].on_change('active', update_toggle)
     wdg['jump_next'].on_click(next_update)
     wdg['jump_prev'].on_click(prev_update)
     wdg['save_read_file'].on_click(export_data)
@@ -385,6 +400,36 @@ def build_widgets():
 
 
 def create_figure(x_data, y_data, wdg, app_vars):
+
+
+    def vline(x_coords, y_upper, y_lower):
+        # Return a dataset that can plot vertical lines
+        x_values = np.vstack((x_coords, x_coords)).T
+        y_upper_list = np.full((1, len(x_values)), y_upper)
+        y_lower_list = np.full((1, len(x_values)), y_lower)
+        y_values = np.vstack((y_lower_list, y_upper_list)).T
+        return x_values.tolist(), y_values.tolist()
+
+
+    def hlines(y_coords, x_lower, x_upper):
+        """
+
+        Parameters
+        ----------
+        y_coords: (int, float) height to plot lines at
+        x_lower: (int, float) lower x coord
+        x_upper: (int, float) upper x coord
+
+        Returns
+        -------
+
+        """
+        x_values = np.vstack((x_lower, x_upper)).T
+        y_values_list = np.full((1, len(x_values)), y_coords)
+        y_values = np.vstack((y_values_list, y_values_list)).T
+        return x_values.tolist(), y_values.tolist()
+    
+    
     if wdg["toggle_smoothing"].active:
         w_range = app_vars['duration']
         divisor = math.e ** 2.5
@@ -402,9 +447,12 @@ def create_figure(x_data, y_data, wdg, app_vars):
     x_data = np.delete(x_data, lesser_delete_index)
     y_data = np.delete(y_data, lesser_delete_index)
 
+    x_data = x_data[::thin_factor]
+    y_data = y_data[::thin_factor]
+
     data = {
-        'x': x_data[::thin_factor],
-        'y': y_data[::thin_factor],
+        'x': x_data,
+        'y': y_data,
     }
 
     source = ColumnDataSource(data=data)
@@ -443,38 +491,121 @@ def create_figure(x_data, y_data, wdg, app_vars):
     p.xaxis.major_label_orientation = math.radians(45)
     p.x_range.range_padding = 0.01
 
+    # set padding manually
+    y_min = np.amin(data['y'])
+    y_max = np.amax(data['y'])
+    pad = (y_max - y_min)*0.1 / 2
+    p.y_range = Range1d(y_min - pad, y_max + pad)
+    try:
+        app_data['bmf']
+    except NameError:
+        bmf_set = False
+    except KeyError:
+        bmf_set = False
+    else:
+        bmf_set = True
+    if bmf_set and wdg['toggle_mappings'].active:
+        # set padding manually
+        # lower_pad = (y_max - y_min) * 0.1 / 2
+        # upper_pad = (y_max - y_min) / 2
+        # p.y_range = Range1d(y_min - lower_pad, y_max + upper_pad)
+        # set mapping track midpoints
+        # upper_mapping = upper_pad / 4 * 3 + y_max
+        # lower_mapping = upper_pad / 4 + y_max
+        lower_mapping = int(wdg['label_height'].value) + 750
+        # Select only this channel
+        slim_bmf = app_data['bmf'][app_data['bmf']['channel'] == app_vars['channel_num']]
+        # Select the current viewed range
+        slim_bmf = slim_bmf[
+            (
+                    (slim_bmf['start_time'] > app_vars['start_time']) &
+                    (slim_bmf['end_time'] < app_vars['end_time'])
+            ) |
+            (
+                    (slim_bmf['start_time'] < app_vars['start_time']) &
+                    (slim_bmf['end_time'] < app_vars['end_time']) &
+                    (slim_bmf['end_time'] > app_vars['start_time'])
+            ) |
+            (
+                    (slim_bmf['start_time'] > app_vars['start_time']) &
+                    (slim_bmf['end_time'] > app_vars['end_time']) &
+                    (slim_bmf['start_time'] < app_vars['end_time'])
+            )
+        ]
+        slim_bmf['start_time'] = slim_bmf['start_time'].where(slim_bmf['start_time'] > app_vars['start_time'], app_vars['start_time'])
+        slim_bmf['end_time'] = slim_bmf['end_time'].where(slim_bmf['end_time'] < app_vars['end_time'], app_vars['end_time'])
+
+        slim_bmf['height'] = lower_mapping
+        slim_bmf['offset'] = np.ones(len(slim_bmf)) * 5 + slim_bmf.groupby(['start_time', 'end_time']).cumcount() * 15
+        # Convert slim_bmf to ColDataSrc
+        mapping_source = ColumnDataSource(data=slim_bmf.to_dict(orient='list'))
+        # Add labels to LabelSet
+        mapping_labels = LabelSet(x='start_time', y='height', text='label', level='glyph', x_offset=5,
+                                  y_offset='offset', source=mapping_source, render_mode='canvas')
+        p.add_layout(mapping_labels)
+        # Add some colour here
+        # Forward Vertical lines => blue
+        p_x, p_y = vline(np.concatenate([slim_bmf['start_time'].where(slim_bmf['strand'] == '+').dropna().values,
+                                         slim_bmf['end_time'].where(slim_bmf['strand'] == '+').dropna().values]),
+                         lower_mapping + 20,
+                         lower_mapping - 20
+                         )
+        p.multi_line(p_x, p_y, line_dash='solid', color='blue', line_width=1)
+        # Reverse Vertical lines => red
+        p_x, p_y = vline(np.concatenate([slim_bmf['start_time'].where(slim_bmf['strand'] == '-').dropna().values,
+                                         slim_bmf['end_time'].where(slim_bmf['strand'] == '-').dropna().values]),
+                         lower_mapping + 20,
+                         lower_mapping - 20
+                         )
+        p.multi_line(p_x, p_y, line_dash='solid', color='red', line_width=1)
+        # Horizontal lines
+        p_x, p_y = hlines(lower_mapping,
+                          slim_bmf['start_time'].where(slim_bmf['strand'] == '+').dropna(),
+                          slim_bmf['end_time'].where(slim_bmf['strand'] == '+').dropna()
+        )
+        p.multi_line(p_x, p_y, line_dash='solid', color='blue', line_width=1)
+        # Horizontal lines
+        p_x, p_y = hlines(lower_mapping,
+                          slim_bmf['start_time'].where(slim_bmf['strand'] == '-').dropna(),
+                          slim_bmf['end_time'].where(slim_bmf['strand'] == '-').dropna()
+        )
+        p.multi_line(p_x, p_y, line_dash='solid', color='red', line_width=1)
+    
     if wdg['toggle_y_axis'].active:
         p.y_range = Range1d(int(wdg['po_y_min'].value), int(wdg['po_y_max'].value))
-
     if wdg['toggle_annotations'].active:
+        # Map modal_classifications onto df
+        app_data['label_df']['mc_active_map'] = app_data['label_df']['modal_classification'].map(app_data['label_mp'])
+        app_data['label_df']['mc_label_map'] = app_data['label_df']['modal_classification'].map(app_data['label_dt'])
         # Here labels are thinned out
         slim_label_df = app_data['label_df'][
             (app_data['label_df']['read_start'] >= app_vars['start_time']) &
             (app_data['label_df']['read_start'] <= app_vars['end_time'])
             ]
-        for index, label in slim_label_df.iterrows():
-            if label.modal_classification in app_data['label_mp']:
-                if app_data['label_mp'][label.modal_classification] in wdg['label_filter'].active:
-                    event_line = Span(
-                        location=label.read_start,
-                        dimension='height',
-                        line_color='green',
-                        line_dash='dashed',
-                        line_width=1
-                    )
-                    p.add_layout(event_line)
-                    labels = Label(
-                        x=label.read_start,
-                        y=int(wdg['label_height'].value),
-                        text="{cl} - {ri}".format(cl=app_data['label_dt'][label.modal_classification], ri=label.read_id),
-                        level='glyph',
-                        x_offset=0,
-                        y_offset=0,
-                        render_mode='canvas',
-                        angle=-270,
-                        angle_units='deg'
-                    )
-                    p.add_layout(labels)
+        # Use pd.isin to remove unwanted annotations from the slimmed df
+        slim_label_df = slim_label_df[slim_label_df['mc_active_map'].isin(wdg['label_filter'].active) == True]
+        # get coordinates and vstack them to produce [[x, x], [x, x]...]
+        line_x_values = np.vstack((slim_label_df['read_start'].values, slim_label_df['read_start'].values)).T
+        tmp_list = np.full((1, len(line_x_values)), -10000)
+        line_y_values = np.vstack((tmp_list, tmp_list * -1)).T
+        # Add all vertical lines as multi_line
+        p.multi_line(line_x_values.tolist(), line_y_values.tolist(), line_dash='dashed', color='green', line_width=1)
+        # combine series to form label
+        slim_label_df['label'] = slim_label_df['mc_label_map'] + " - " + slim_label_df['read_id'].astype('str')
+        # Create ColumnDataSource combining labels and coordinates
+        label_source = ColumnDataSource(
+            data=dict(
+                x=slim_label_df['read_start'].values,
+                y=np.full((len(slim_label_df), 1), int(wdg['label_height'].value)),
+                t=slim_label_df['label'].values
+            )
+        )
+        # Add all labels as a label set
+        labels = LabelSet(x='x', y='y', text='t', level='glyph',
+                          x_offset=0, y_offset=0, source=label_source,
+                          render_mode='canvas', angle=-270, angle_units='deg')
+        p.add_layout(labels)
+
     return p
 
 
@@ -512,6 +643,43 @@ def input_error(widget, mode):
             del widget.css_classes[-1]
     else:
         print("mode not recognised")
+
+
+def update():
+    update_data(
+        app_data['bulkfile'],
+        app_data['app_vars']
+    )
+    if app_data['INIT']:
+        build_widgets()
+        layout.children[0] = widgetbox(list(app_data['wdg_dict'].values()), width=int(cfg_po['wdg_width']))
+        app_data['INIT'] = False
+    app_data['wdg_dict']['duration'].text = "Duration: {d} seconds".format(d=app_data['app_vars']['duration'])
+    app_data['wdg_dict']['toggle_smoothing'].active = True
+    layout.children[1] = create_figure(
+        app_data['x_data'],
+        app_data['y_data'],
+        app_data['wdg_dict'],
+        app_data['app_vars']
+    )
+
+
+def update_other(attr, old, new):
+    update()
+
+
+def update_toggle(attr, old, new):
+    if new == 0:
+        app_data['wdg_dict']['label_filter'].active = list(np.arange(0, len(app_data['wdg_dict']['label_filter'].labels), 1))
+    elif new == 1:
+        app_data['wdg_dict']['label_filter'].active = []
+    update()
+
+
+def update_checkboxes(attr, old, new):
+    if len(new) != len(app_data['wdg_dict']['label_filter'].labels) and len(new) != 0:
+        app_data['wdg_dict']['filter_toggle_group'].active = None
+    update()
 
 
 def next_update(value):
@@ -600,6 +768,7 @@ def export_data():
 app_data = {
     'file_src': None,  # bulkfile path (string)
     'bulkfile': None,  # bulkfile object
+    'bmf': None,  # bmf dataframe
     'x_data': None,  # numpy ndarray time points
     'y_data': None,  # numpy ndarray signal data
     'label_df': None,  # pandas df of signal labels
@@ -624,11 +793,14 @@ app_data = {
 }
 
 int_inputs = ['po_width', 'po_height', 'po_y_min', 'po_y_max', 'label_height']
-toggle_inputs = ['toggle_y_axis', 'toggle_annotations', 'toggle_smoothing']
+toggle_inputs = ['toggle_y_axis', 'toggle_annotations', 'toggle_mappings', 'toggle_smoothing']
 
 app_data['app_vars']['files'] = []
 p = Path(cfg_dr['dir'])
 app_data['app_vars']['files'] = [(x.name, x.name) for x in p.iterdir() if x.suffix == '.fast5']
+m = Path(cfg_dr['map'])
+app_data['app_vars']['map_files'] = [(x.name, x.name) for x in m.iterdir() if x.suffix == '.bmf']
+app_data['app_vars']['map_files'].insert(0, ("", "--"))
 # check files are useable by h5py
 for index, file in enumerate(app_data['app_vars']['files']):
     file = file[0]
