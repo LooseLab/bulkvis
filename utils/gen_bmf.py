@@ -51,7 +51,7 @@ def main():
     i = 0
     for k, v in df.groupby(['run_id']):
         # Join 'bmf' path, run_id, and file extension
-        p = args.bmf + '/' + k + '.bmf'
+        p = Path(args).joinpath(k + 'bmf')
         v.to_csv(p, sep="\t", header=True, columns=header, index=False)
         i += 1
 
@@ -97,7 +97,8 @@ def get_args():
                           help='''Specify the output folder, where files will be written as <run_id>.bmf. This 
                                   should be the \'map\' path specified in the config.ini''',
                           type=full_path,
-                          metavar=''
+                          metavar='',
+                          required=True
                           )
     return parser.parse_args()
 
