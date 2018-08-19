@@ -7,3 +7,4 @@ main2.py
 *.ini
 docs/_build
 docs/_template
+data/*
