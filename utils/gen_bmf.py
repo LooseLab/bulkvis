@@ -51,7 +51,7 @@ def main():
     i = 0
     for k, v in df.groupby(['run_id']):
         # Join 'bmf' path, run_id, and file extension
-        p = Path(args).joinpath(k + 'bmf')
+        p = Path(args.bmf).joinpath(str(k) + '.bmf')
         v.to_csv(p, sep="\t", header=True, columns=header, index=False)
         i += 1
 
