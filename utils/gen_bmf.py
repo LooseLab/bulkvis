@@ -2,12 +2,10 @@ import pandas as pd
 import numpy as np
 from argparse import ArgumentParser
 from pathlib import Path
-import warnings
 
 
 def main():
     """Main method, converting and exporting PAF + SS to BMF"""
-    warnings.warn('This is temporary and will be removed without notice')
     # Get arguments
     args = get_args()
     paf_path = args.paf
@@ -55,7 +53,8 @@ def full_path(file):
 def get_args():
     parser = ArgumentParser(
         description="""Parse sequencing_summary.txt files 
-                       and .paf files to format mapping info for bulkvis""",
+                       and .paf files to format mapping 
+                       info for bulkvis""",
         add_help=False)
     general = parser.add_argument_group(
         title='General options')
