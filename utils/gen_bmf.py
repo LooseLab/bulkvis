@@ -12,12 +12,12 @@ def main():
     args = get_args()
     paf_path = args.paf
     # Open [PAF] mapping file with specified columns
-    col_names = ['Qname', 'Strand', 'Tname', 'Tstart', 'Tend', 'block_length', 'alignment_type']
-    pf = pd.read_csv(paf_path, sep='\t', header=None, names=col_names, usecols=[0, 4, 5, 7, 8, 10, 12])
+    col_names = ['Qname', 'Strand', 'Tname', 'Tstart', 'Tend', 'mapping_quality', 'alignment_type']
+    pf = pd.read_csv(paf_path, sep='\t', header=None, names=col_names, usecols=[0, 4, 5, 7, 8, 11, 12])
     # Thin PAF file by 'Primary alignment type' and drop duplicates
     pf = pf[pf['alignment_type'] == 'tp:A:P']
-    pf = pf.sort_values(['Qname', 'Tname', 'block_length'], ascending=[True, True, False])
-    pf = pf.drop_duplicates(['Qname', 'Tname'], keep='first')
+    pf = pf.sort_values(['Qname', 'Tname', 'mapping_quality'], ascending=[True, True, False])
+    pf = pf.drop_duplicates(['Qname'], keep='first')
     # Open sequencing_summary.txt file 
     cols = ['read_id', 'run_id', 'channel', 'start_time', 'duration']
     ss = pd.read_csv(args.summary, sep='\t', usecols=cols)
@@ -28,16 +28,6 @@ def main():
     df['end_time'] = df['start_time'] + df['duration']
     df['start_mapping'] = df[['Tstart', 'Tend']].min(axis=1).astype('int64').map('{0:,d}'.format)
     df['end_mapping'] = df[['Tstart', 'Tend']].max(axis=1).astype('int64').map('{0:,d}'.format)
-    # df['start_mapping'] = np.where(df['Strand'] == '+',
-    #                                df[['Tstart', 'Tend']].min(axis=1),
-    #                                df[['Tstart', 'Tend']].min(axis=1)
-    #                                )
-    # df['end_mapping'] = np.where(df['Strand'] == '+',
-    #                              df[['Tstart', 'Tend']].max(axis=1),
-    #                              df[['Tstart', 'Tend']].max(axis=1)
-    #                              )
-    # df['sm'] = df['start_mapping'].astype('int64').map('{0:,d}'.format)
-    # df['em'] = df['end_mapping'].astype('int64').map('{0:,d}'.format)
     df['label'] = (df['Tname'].astype('str') + ": " +
                    df['start_mapping'].astype('str') + " - " +
                    df['end_mapping'].astype('str')

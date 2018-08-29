@@ -12,6 +12,7 @@ that is provided in this repository.
 |-:|:-:|:-|
 |`data`|string|Path to the bulk-fast5 file directory|
 |`out`|string|Path to where read files will be written, this path must exist|
+|`map`|string|Path to where map files directory (created by [gen_bmf.py](utils/gen_bmf.py))|
 
 `[plot_opts]` describes default options for the squiggle plot
 
@@ -31,12 +32,13 @@ that is provided in this repository.
 options are available these are derived from bulk-fast5 files, specifically the
 `IntermediateData` and `StateData` groups. If a classification is not found in a file
 it will not be added as an option in the gui. The script [set_config.py](utils/set_config.py) 
-can be used to populate the entire config file and add in labels...
+can be used to populate the entire config file and add in labels.
 
 ```INI
 [data]
 dir = /path/to/bulkfile/directory 
 out = /path/to/readfile/directory 
+map = /path/to/mapfile/directory
 [plot_opts]
 wdg_width = 300
 plot_width = 1600
