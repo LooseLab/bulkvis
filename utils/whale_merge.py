@@ -60,8 +60,8 @@ def main():
                     if len(line.split()) > 1: #means we have a fastq ID line
                         if cnt%400 == 0:
                             print(myreadtracker.result())
-                        read_id = line.split()[0][1:]
-
+                        read_id = line.split()[0][1:][0:36]
+#                        print (read_id)
                         read_dict[read_id] = dict()
                         read_dict[read_id]['header'] = line.strip()
                         read_dict[read_id]['fasta'] = fp.readline().strip()

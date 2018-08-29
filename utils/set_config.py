@@ -1,6 +1,17 @@
 import h5py
 from argparse import ArgumentParser, ArgumentTypeError
+from pathlib import Path
 import configparser
+
+
+def full_path(file):
+    q = Path(file).expanduser().resolve()
+    if q.exists() and q.is_dir():
+        return str(q)
+    else:
+        msg = "Path '{v}' doesn't exist or isn't a directory".format(v=file)
+        raise ArgumentTypeError(msg)
+
 
 
 def get_args():
@@ -19,19 +30,18 @@ def get_args():
     in_args.add_argument("-b", "--bulkfile",
                          help="A bulk-fast5 file to get labels from",
                          type=str,
-                         default="",
                          required=True,
                          metavar=''
                          )
     in_args.add_argument("-i", "--input-dir",
                          help="The path to tbe folder containing bulk-files for visualisation",
-                         type=str,
+                         type=full_path,
                          required=True,
                          metavar=""
                          )
     in_args.add_argument("-e", "--export-dir",
                          help="The path to tbe folder where read-files will be written by bulkvis",
-                         type=str,
+                         type=full_path,
                          required=True,
                          metavar=""
                          )
@@ -46,13 +56,6 @@ def get_args():
                           )
     return parser.parse_args()
 
-def str2bool(v):
-    if v.lower() in ('true', 't', 'yes', 'y', '1'):
-        return True
-    elif v.lower() in ('false', 'f', 'no', 'n', '0'):
-        return False
-    else:
-        return ArgumentTypeError('Boolean value expected.')
 
 def get_annotations(path, enum_field):
     data_dtypes = {}

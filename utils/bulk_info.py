@@ -2,11 +2,18 @@ import h5py
 from pathlib import Path
 import pandas as pd
 from dateutil import parser
-from argparse import ArgumentParser
+from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
 
 
 def get_stats(bulkfile):
-    file = h5py.File(bulkfile, "r")
+    try:
+        file = h5py.File(bulkfile, "r")
+    except OSError:
+        print("Cannot access:\t{f}".format(f=bulkfile))
+        return
+    except Exception as e:
+        print(e)
+        return
     s_dict = {}
     try:
         s_dict['sample_frequency'] = int(file["UniqueGlobalKey"]["context_tags"].attrs["sample_frequency"].decode('utf8'))
@@ -24,6 +31,10 @@ def get_stats(bulkfile):
         s_dict['flowcell_id'] = file["UniqueGlobalKey"]["tracking_id"].attrs["flow_cell_id"].decode('utf8')
     except KeyError:
         s_dict['flowcell_id'] = "NA"
+    try:
+        s_dict['protocol_version'] = file["UniqueGlobalKey"]["tracking_id"].attrs["protocols_version"].decode('utf8')
+    except KeyError:
+        s_dict['protocol_version'] = "NA"
     try:
         s_dict['minknow_version'] = file["UniqueGlobalKey"]["tracking_id"].attrs["version"].decode('utf8')
     except KeyError:
@@ -60,25 +71,34 @@ def get_stats(bulkfile):
 def main():
     args = get_args()
 
-    p = Path(args.dir)
+    p = Path(args.dir).expanduser().resolve()
     files = [x.name for x in p.iterdir() if x.suffix == '.fast5']
     for index, file in enumerate(files):
-        bulk_file = h5py.File(Path(Path(args.dir) / file), 'r')
-        try_path = bulk_file["Raw"]
+        try:
+            bulk_file = h5py.File(str(Path(p / file)), 'r')
+        except OSError:
+            continue
+        except Exception as e:
+            print(e)
+            continue
+        try:
+            try_path = bulk_file["Raw"]
+        except KeyError:
+            continue
         for i, channel in enumerate(try_path):
             if i == 0:
                 try:
                     try_path[channel]["Signal"][0]
                 except KeyError:
-                    del files[index]
+                    files[index] = None
             break
         bulk_file.flush()
         bulk_file.close()
 
-    header = ['sample_frequency', 'run_id', 'experiment', 'flowcell_id', 'minknow_version', 'minion_id',
-              'hostname', 'sequencing_kit', 'flowcell_type', 'asic_id', 'experiment_start']
+    files = list(filter((None).__ne__, files))
+    header = ['sample_frequency', 'run_id', 'experiment', 'flowcell_id', 'protocol_version', 'minknow_version',
+              'minion_id', 'hostname', 'sequencing_kit', 'flowcell_type', 'asic_id', 'experiment_start']
     df = pd.DataFrame(columns=header)
-    
     for file in files:
         df = df.append(get_stats(Path(p / file)), ignore_index=True)
 
@@ -86,7 +106,9 @@ def main():
 
 def get_args():
     parser = ArgumentParser(
-        description="""This does something...""",
+        description="""Given a directory containing bulk fast5 files output a CSV containing the run 
+                    information for them""",
+        formatter_class=ArgumentDefaultsHelpFormatter,
         add_help=False)
     general = parser.add_argument_group(
         title='General options')
@@ -100,7 +122,6 @@ def get_args():
     in_args.add_argument("-d", "--dir",
                          help="A directory containing bulk-fast5-files",
                          type=str,
-                         default='',
                          required=True,
                          metavar=''
                          )
@@ -108,9 +129,9 @@ def get_args():
         title='Output sources'
     )
     out_args.add_argument("-o", "--out",
-                         help="Name for the output file",
+                         help="Output csv filename",
                          type=str,
-                         default='',
+                         default='bulk_info.csv',
                          required=True,
                          metavar=''
                          )

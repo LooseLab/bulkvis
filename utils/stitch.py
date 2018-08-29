@@ -1,5 +1,6 @@
 import h5py
 import pandas as pd
+from pathlib import Path
 import sys
 
 
@@ -98,5 +99,5 @@ def export_read_file(channel, start_index, end_index, bulkfile, output_dir):
 
 
 if __name__ == "__main__":
-    print("Sorry, stitch.py is not designed to be run directly.")
+    print("Sorry, {f} is not designed to be run directly.".format(f=Path(__file__).name))
     sys.exit()
