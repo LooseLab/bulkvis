@@ -25,7 +25,7 @@ $ cd bulkvis
 $ pip install -r requirements.txt
 
 # Set config with set_config.py
-$ python utils/set_config.py -b <<bulkfile>> -i /path/to/bulkfile/directory -e /path/to/read/file/export/directory
+$ python utils/set_config.py -b <<bulkfile>> -i /path/to/bulkfile/directory -e /path/to/readfile/directory -m /path/to/mapfile/directory -c config.ini
 
 # Move to bulkvis' parent folder
 $ cd ..
