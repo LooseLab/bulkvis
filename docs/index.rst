@@ -21,3 +21,4 @@ It enables the visualisation of raw 'squiggle' data from Oxford Nanopore Technol
    installation
    quickstart
    utilities
+   collecting_a_bulk_file
