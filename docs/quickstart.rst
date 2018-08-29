@@ -85,12 +85,13 @@ Annotations
 Annotations are added to the plot based on state data and intermediate data from the bulkfile. These represent the label
 computed by MinKNOW at specific time points in the experiment.
 
-Selecting a checkbox will allow that specific label to be rendered on the plot. The 'Display annotations' button will toggle
-all annotations on/off.
+Selecting a checkbox will allow that specific label to be rendered on the plot. The 'Display annotations' or 'Display mappings'
+button will toggle these annotations on/off. The 'Select all' button will turn all annotations on, while the 'Select none' 
+button will de-select all the annotations.
 
 .. figure:: _static/images/quickstart/05_annotations.png
     :class: figure
-    :alt: Screenshot of 'Select annotations' section of sidebar showing a button labeled 'Display annotations' and a list of checkboxes
+    :alt: Screenshot of 'Select annotations' section of sidebar showing buttons labeled 'Display annotations', 'Display mappings', 'Select all', 'Select none' and a list of checkboxes
 
     Screenshot of the annotation selection panel
 
