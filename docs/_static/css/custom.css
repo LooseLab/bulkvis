@@ -1,3 +1,11 @@
 .figure img {
     border: 1px solid black;
 }
+.custom-warn {
+    color: #D63301;
+    background-color: #FFCCBA;
+    border: 1px solid;
+    margin: 10px 0px;
+    padding: 15px 40px;
+    font-size: 30px;
+}

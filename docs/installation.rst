@@ -61,7 +61,7 @@ example bulkfile from ``config.md``.
 Using ``set_config.py``::
 
     cd bulkvis
-    python utils/set_confi.py -b <<bulkfile>> -i /path/to/bulkfile/directory -e /path/to/readfile/directory -c config.ini
+    python utils/set_confi.py -b <<bulkfile>> -i /path/to/bulkfile/directory -e /path/to/readfile/directory -m /path/to/mapfile/directory -c config.ini
 
 Using ``config.md``::
 
@@ -70,7 +70,7 @@ Using ``config.md``::
     nano config.ini
 
 Then navigate to `config.md <https://github.com/LooseLab/bulkvis/blob/master/config.md>`_, copy and paste the example
-configuration settings into nano in the terminal and finally change the directories (``dir`` and ``out``) to point
+configuration settings into nano in the terminal and finally change the directories (``dir``, ``out`` and ``map``) to point
 towards your bulk-fast5-files and a read directory.
 
 Starting bulkvis

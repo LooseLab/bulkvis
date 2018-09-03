@@ -13,7 +13,6 @@ def full_path(file):
         raise ArgumentTypeError(msg)
 
 
-
 def get_args():
     parser = ArgumentParser(
         description="""Generate a configuration file required for bulkvis to run""",
@@ -41,6 +40,12 @@ def get_args():
                          )
     in_args.add_argument("-e", "--export-dir",
                          help="The path to tbe folder where read-files will be written by bulkvis",
+                         type=full_path,
+                         required=True,
+                         metavar=""
+                         )
+    in_args.add_argument("-m", "--map-dir",
+                         help="The path to tbe folder where map files, created by gen_bmf.py, are stored",
                          type=full_path,
                          required=True,
                          metavar=""
@@ -86,7 +91,8 @@ def main():
     config = configparser.ConfigParser()
     config['data'] = {
         'dir': args.input_dir,
-        'out': args.export_dir
+        'out': args.export_dir,
+        'map': args.map_dir
     }
     config['plot_opts'] = {
         'wdg_width': 300,
