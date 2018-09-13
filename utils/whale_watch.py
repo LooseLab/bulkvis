@@ -209,7 +209,10 @@ def n50(lengths):
 
 
 def full_path(file):
-    return str(Path(file).expanduser().resolve())
+    try:
+        return str(Path(file).expanduser().resolve())
+    except FileNotFoundError:
+        return str(Path(file).expanduser())
 
 
 def get_args():
