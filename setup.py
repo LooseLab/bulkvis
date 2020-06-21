@@ -1,4 +1,4 @@
-from setuptools import setup
+from setuptools import setup, find_packages
 
 version = {}
 with open("bulkvis/_version.py") as fh:
@@ -22,5 +22,5 @@ setup(
             'bulkvis=bulkvis.bulkvis:main',
         ],
     },
-    package_dir={'bulkvis': 'bulkvis'},
+    packages=find_packages(where="bulkvis"),
 )
