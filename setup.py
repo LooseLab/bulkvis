@@ -1,4 +1,4 @@
-from setuptools import setup, find_packages
+from setuptools import setup
 
 version = {}
 with open("bulkvis/_version.py") as fh:
@@ -22,5 +22,6 @@ setup(
             'bulkvis=bulkvis.bulkvis:main',
         ],
     },
-    packages=find_packages(where="bulkvis"),
+    packages=["bulkvis"],
+    python_requires=">=3.6",
 )
