@@ -1,0 +1,29 @@
+@import url(https://fonts.googleapis.com/css?family=Noto+Sans);
+
+body {
+    font-family: 'Noto Sans', sans-serif;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    display: block;
+    margin: 0;
+}
+.plot_div {
+    position: fixed !important;
+}
+.toggle_button_g_r > .bk-btn-group > .bk-active {
+    background-color: #5cb85c;
+    font-style: italic;
+}
+.toggle_button_o_r > .bk-btn-group > .bk-active {
+    background-color: #ed9c28;
+    font-style: italic;
+}
+.input-error > .bk-input-group > input {
+    background-color: #d9534f;
+}
+label.bk > span.bk {
+    font-family: monospace;
+}
+code {
+    overflow-wrap: anywhere;
+}

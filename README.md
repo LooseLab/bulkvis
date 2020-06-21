@@ -1,41 +1,27 @@
 ⇜ bulkvis ⇝
 ============
 
-An app written in Python3 using [Bokeh](https://github.com/bokeh/bokeh/) to visualise raw squiggle data from Oxford Nanopore Technologies (ONT) bulkfiles. 
-See the documentation at [https://bulkvis.readthedocs.io](https://bulkvis.readthedocs.io)
+An app written in Python3 using [Bokeh](https://github.com/bokeh/bokeh/) to visualise 
+raw squiggle data from Oxford Nanopore Technologies (ONT) bulkfiles. 
 
 Quickstart
 ==========
 ```bash
 # Make a python3 virtual environment
-$ mkdir ~/envs
-$ cd ~/envs
-$ python3 -m venv ~/envs/bulkvis
+$ python3 -m venv bulkvis
 
 # Activate virtual environment
-$ source ~/envs/bulkvis/bin/activate
+$ source bulkvis/bin/activate
 
 # Clone the repo to your installation/projects directory
-$ git clone https://github.com/LooseLab/bulkvis.git
-
-# Enter the bulkvis folder
-$ cd bulkvis
-
-# Install dependencies via pip
-$ pip install -r requirements.txt
-
-# Set config with set_config.py
-$ python utils/set_config.py -b <<bulkfile>> -i /path/to/bulkfile/directory -e /path/to/readfile/directory -m /path/to/mapfile/directory -c config.ini
-
-# Move to bulkvis' parent folder
-$ cd ..
+$ pip install git+https://github.com/LooseLab/bulkvis.git@2.0
 
 # Start bokeh server
-$ bokeh serve --show bulkvis
+$ bulkvis serve <BULK_FILE_DIRECTORY> --show
 ```
 
-Configuration
-=============
-bulkvis uses some user defined parameter to set default plot options. 
-These can change depending on your preferences. For a comprehensive overview
-of the config file see [config.md](config.md)
+Other install requires:
+===
+
+To open some bulk FAST5 files [`vbz compression plugins`](https://github.com/nanoporetech/vbz_compression) 
+are required. These are written and maintained by Oxford Nanopore Technologies.
