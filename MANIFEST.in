@@ -1,0 +1,3 @@
+recursive-include bulkvis/ *.py
+recursive-include bulkvis/ *.html
+recursive-include bulkvis/ *.css
