@@ -33,7 +33,114 @@ from bokeh.models import (
 )
 from bokeh.plotting import curdoc, figure
 
-# from utils.stitch import export_read_file
+
+def export_read_file(channel, start_index, end_index, bulkfile, output_dir):
+    """
+    Export a read file generated from index coordinates and
+    :param channel: int, channel number
+    :param start_index: int, start index for read
+    :param end_index: int, end index for read
+    :param bulkfile: bulkfile object
+    :param output_dir: str, output directory, including trailing slash
+    :return: 0 for success
+    """
+    out_filename = Path(bulkfile.filename).stem
+    # out_filename = (
+    #     bulkfile["UniqueGlobalKey"]["context_tags"].attrs["filename"].decode("utf8")
+    # )
+
+    output_arg = "{dir}/{fn}_bulkvis-read_{start}-{end}_ch_{ch}.fast5".format(
+        dir=output_dir,
+        fn=out_filename,
+        start=start_index,
+        end=end_index,
+        ch=channel,
+    )
+
+    LOGGER.info(f"Exporting to {output_arg}")
+
+    readfile = h5py.File(output_arg, "w")
+    read_id_str = "{ch}-{start}-{end}".format(
+        ch=channel, start=start_index, end=end_index
+    )
+    version_num = 0.6
+
+    ch_num = channel
+    ch_str = "Channel_{ch}".format(ch=ch_num)
+
+    ugk = readfile.create_group("UniqueGlobalKey")
+
+    bulkfile.copy("UniqueGlobalKey/context_tags", ugk)
+    bulkfile.copy("UniqueGlobalKey/tracking_id", ugk)
+    bulkfile.copy("IntermediateData/{ch}/Meta".format(ch=ch_str), ugk)
+
+    readfile["UniqueGlobalKey"]["channel_id"] = readfile["UniqueGlobalKey"]["Meta"]
+    readfile["UniqueGlobalKey"]["channel_id"].attrs.create(
+        "sampling_rate",
+        readfile["UniqueGlobalKey"]["Meta"].attrs["sample_rate"],
+        None,
+        dtype="Float64",
+    )
+    del readfile["UniqueGlobalKey"]["Meta"]
+
+    readfile["UniqueGlobalKey"]["channel_id"].attrs.create(
+        "channel_number", ch_num, None, dtype="<S4"
+    )
+    remove_attrs = [
+        "description",
+        "elimit",
+        "scaling_used",
+        "smallest_event",
+        "threshold",
+        "window",
+        "sample_rate",
+    ]
+    for attr in remove_attrs:
+        del readfile["UniqueGlobalKey"]["channel_id"].attrs[attr]
+
+    int_data_path = bulkfile["IntermediateData"][ch_str]["Reads"]
+    int_dict = {
+        "read_start": int_data_path["read_start"],
+        "median_before": int_data_path["median_before"],
+        # "current_well_id": int_data_path["current_well_id"],
+    }
+    df = pd.DataFrame(data=int_dict)
+    df = df.where(df.read_start > start_index).dropna()
+    read_number = 0
+    attrs = {
+        "duration": {"val": end_index - start_index, "d": "uint32"},
+        "median_before": {"val": df.iloc[0].median_before, "d": "Float64"},
+        "read_id": {"val": read_id_str, "d": "<S38"},
+        "read_number": {"val": read_number, "d": "uint16"},
+        # "start_mux": {"val": int(df.iloc[0].current_well_id), "d": "uint8"},
+        "start_time": {"val": start_index, "d": "uint64"},
+    }
+
+    dataset = bulkfile["Raw"][ch_str]["Signal"][()]
+    dataset = dataset[start_index:end_index]
+
+    readfile.create_group("Raw/Reads/Read_{n}".format(n=read_number))
+    readfile.attrs.create("file_version", version_num, None, dtype="Float64")
+    # add read_### attrs
+    for k, v in attrs.items():
+        readfile["Raw"]["Reads"]["Read_{n}".format(n=read_number)].attrs.create(
+            k, v["val"], None, dtype=v["d"]
+        )
+
+    ms = [18446744073709551615]
+    readfile.create_dataset(
+        "Raw/Reads/Read_{n}/Signal".format(n=read_number),
+        data=(dataset),
+        maxshape=(ms),
+        chunks=True,
+        dtype="int16",
+        compression="gzip",
+        compression_opts=1,
+    )
+
+    readfile.close()
+    return 0
+
 
 LOGGER = logging.getLogger("bokeh")
 
@@ -414,18 +521,18 @@ def build_widgets():
     # wdg['jump_next'] = Dropdown(label="Jump to next", button_type="primary", menu=jump_list, css_classes=['jump-block'])
     # wdg['jump_prev'] = Dropdown(label="Jump to previous", button_type="primary", menu=jump_list)
 
-    # wdg['export_label'] = Div(text='Export data:', css_classes=['export-dropdown', 'help-text'])
-    # wdg['export_text'] = Div(
-    #     text="""Export data, as a read file, from the current position. These are written to the output directory
-    #             specified in your config file.
-    #             """,
-    #     css_classes=['export-drop']
-    # )
-    # wdg['save_read_file'] = Button(
-    #     label="Save read file",
-    #     button_type="success",
-    #     css_classes=[]
-    # )
+    wdg["export_label"] = Div(
+        text="Export data:", css_classes=["export-dropdown", "help-text"]
+    )
+    wdg["export_text"] = Div(
+        text="""Export data, as a read file, from the current position. These are written to the output directory
+                specified in your config file.
+                """,
+        css_classes=["export-drop"],
+    )
+    wdg["save_read_file"] = Button(
+        label="Save read file", button_type="success", css_classes=[]
+    )
     # wdg['bulkfile_info'] = Div(text='Bulkfile info', css_classes=['bulkfile-dropdown', 'caret-down'])
     # wdg['bulkfile_help'] = Div(text='Bulkfile info help:', css_classes=['bulkfile-help-dropdown', 'help-text', 'bulkfile-drop'])
     # wdg['bulkfile_help_text'] = Div(
@@ -518,7 +625,7 @@ def build_widgets():
     wdg["filter_toggle_group"].on_change("active", update_toggle)
     # wdg['jump_next'].on_click(next_update)
     # wdg['jump_prev'].on_click(prev_update)
-    # wdg['save_read_file'].on_click(export_data)
+    wdg["save_read_file"].on_click(export_data)
 
     for name in toggle_inputs:
         wdg[name].on_click(toggle_button)
@@ -923,23 +1030,28 @@ def prev_update(value):
         return
 
 
-# def export_data():
-#     try:
-#         start_val = math.floor(app_data['app_vars']['start'] * app_data['app_vars']['sf'])
-#         end_val = math.ceil(app_data['app_vars']['end'] * app_data['app_vars']['sf'])
-#     except KeyError:
-#         start_val = app_data['app_vars']['start_squiggle']
-#         end_val = app_data['app_vars']['end_squiggle']
-#     if export_read_file(
-#         app_data['app_vars']['channel_num'],
-#         start_val,
-#         end_val,
-#         app_data['bulkfile'],
-#         cfg_dr['out']
-#     ) == 0:
-#         app_data['wdg_dict']['duration'].text += "\nread file created"
-#     else:
-#         app_data['wdg_dict']['duration'].text += "\nError: read file not created"
+def export_data():
+    try:
+        start_val = math.floor(
+            app_data["app_vars"]["start"] * app_data["app_vars"]["sf"]
+        )
+        end_val = math.ceil(app_data["app_vars"]["end"] * app_data["app_vars"]["sf"])
+    except KeyError:
+        start_val = app_data["app_vars"]["start_squiggle"]
+        end_val = app_data["app_vars"]["end_squiggle"]
+    if (
+        export_read_file(
+            app_data["app_vars"]["channel_num"],
+            start_val,
+            end_val,
+            app_data["bulkfile"],
+            cfg_dr["out"],
+        )
+        == 0
+    ):
+        app_data["wdg_dict"]["duration"].text += "\nread file created"
+    else:
+        app_data["wdg_dict"]["duration"].text += "\nError: read file not created"
 
 
 app_data = {
