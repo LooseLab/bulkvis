@@ -518,8 +518,15 @@ def build_widgets():
     #             """,
     #     css_classes=['navigation-drop']
     # )
-    # wdg['jump_next'] = Dropdown(label="Jump to next", button_type="primary", menu=jump_list, css_classes=['jump-block'])
-    # wdg['jump_prev'] = Dropdown(label="Jump to previous", button_type="primary", menu=jump_list)
+    wdg["jump_next"] = Dropdown(
+        label="Jump to next",
+        button_type="primary",
+        menu=jump_list,
+        css_classes=["jump-block"],
+    )
+    wdg["jump_prev"] = Dropdown(
+        label="Jump to previous", button_type="primary", menu=jump_list
+    )
 
     wdg["export_label"] = Div(
         text="Export data:", css_classes=["export-dropdown", "help-text"]
@@ -623,8 +630,8 @@ def build_widgets():
 
     wdg["label_filter"].on_change("active", update_checkboxes)
     wdg["filter_toggle_group"].on_change("active", update_toggle)
-    # wdg['jump_next'].on_click(next_update)
-    # wdg['jump_prev'].on_click(prev_update)
+    wdg["jump_next"].on_click(next_update)
+    wdg["jump_prev"].on_click(prev_update)
     wdg["save_read_file"].on_click(export_data)
 
     for name in toggle_inputs:
@@ -952,82 +959,71 @@ def update_checkboxes(attr, old, new):
 
 
 def next_update(value):
-    if value != "reset":
-        value = int(value)
-        jump_start = app_data["label_df"][
-            (
-                app_data["label_df"]["read_start"]
-                > app_data["app_vars"]["start_time"] + 1
-            )
-            & (app_data["label_df"]["modal_classification"] == value)
-        ]
-        try:
-            app_data["app_vars"]["start_time"] = int(
-                math.floor(jump_start["read_start"].iloc[0])
-            )
-        except IndexError:
-            app_data["wdg_dict"]["duration"].text += "\n{ev} event not found".format(
-                ev=app_data["label_dt"][value]
-            )
-            return
-        except Exception as e:
-            print(type(e))
-            print(e)
-        app_data["app_vars"]["end_time"] = (
-            app_data["app_vars"]["start_time"] + app_data["app_vars"]["duration"]
+    value = int(value.item)
+    jump_start = app_data["label_df"][
+        (app_data["label_df"]["read_start"] > app_data["app_vars"]["start_time"] + 1)
+        & (app_data["label_df"]["modal_classification"] == value)
+    ]
+    try:
+        app_data["app_vars"]["start_time"] = int(
+            math.floor(jump_start["read_start"].iloc[0])
         )
-        app_data["wdg_dict"]["position"].value = "{ch}:{start}-{end}".format(
-            ch=app_data["app_vars"]["channel_num"],
-            start=app_data["app_vars"]["start_time"],
-            end=app_data["app_vars"]["end_time"],
+    except IndexError:
+        app_data["wdg_dict"]["duration"].text += "\n{ev} event not found".format(
+            ev=app_data["label_dt"][value]
         )
-        layout.children[1] = create_figure(
-            app_data["x_data"],
-            app_data["y_data"],
-            app_data["wdg_dict"],
-            app_data["app_vars"],
-        )
-        app_data["wdg_dict"]["jump_next"].value = "reset"
-    else:
         return
+    except Exception as e:
+        print(type(e))
+        print(e)
+    app_data["app_vars"]["end_time"] = (
+        app_data["app_vars"]["start_time"] + app_data["app_vars"]["duration"]
+    )
+    app_data["wdg_dict"]["position"].value = "{ch}:{start}-{end}".format(
+        ch=app_data["app_vars"]["channel_num"],
+        start=app_data["app_vars"]["start_time"],
+        end=app_data["app_vars"]["end_time"],
+    )
+    layout.children[1] = create_figure(
+        app_data["x_data"],
+        app_data["y_data"],
+        app_data["wdg_dict"],
+        app_data["app_vars"],
+    )
 
 
 def prev_update(value):
-    if value != "reset":
-        value = int(value)
-        jump_start = app_data["label_df"][
-            (app_data["label_df"]["read_start"] < app_data["app_vars"]["start_time"])
-            & (app_data["label_df"]["modal_classification"] == value)
-        ]
-        try:
-            app_data["app_vars"]["start_time"] = int(
-                math.floor(jump_start["read_start"].iloc[-1])
-            )
-        except IndexError:
-            app_data["wdg_dict"]["duration"].text += "\n{ev} event not found".format(
-                ev=app_data["label_dt"][value]
-            )
-            return
-        except Exception as e:
-            print(type(e))
-            print(e)
-        app_data["app_vars"]["end_time"] = (
-            app_data["app_vars"]["start_time"] + app_data["app_vars"]["duration"]
+    value = int(value.item)
+    jump_start = app_data["label_df"][
+        (app_data["label_df"]["read_start"] < app_data["app_vars"]["start_time"])
+        & (app_data["label_df"]["modal_classification"] == value)
+    ]
+    try:
+        app_data["app_vars"]["start_time"] = int(
+            math.floor(jump_start["read_start"].iloc[-1])
         )
-        app_data["wdg_dict"]["position"].value = "{ch}:{start}-{end}".format(
-            ch=app_data["app_vars"]["channel_num"],
-            start=app_data["app_vars"]["start_time"],
-            end=app_data["app_vars"]["end_time"],
+    except IndexError:
+        app_data["wdg_dict"]["duration"].text += "\n{ev} event not found".format(
+            ev=app_data["label_dt"][value]
         )
-        layout.children[1] = create_figure(
-            app_data["x_data"],
-            app_data["y_data"],
-            app_data["wdg_dict"],
-            app_data["app_vars"],
-        )
-        app_data["wdg_dict"]["jump_prev"].value = "reset"
-    else:
         return
+    except Exception as e:
+        print(type(e))
+        print(e)
+    app_data["app_vars"]["end_time"] = (
+        app_data["app_vars"]["start_time"] + app_data["app_vars"]["duration"]
+    )
+    app_data["wdg_dict"]["position"].value = "{ch}:{start}-{end}".format(
+        ch=app_data["app_vars"]["channel_num"],
+        start=app_data["app_vars"]["start_time"],
+        end=app_data["app_vars"]["end_time"],
+    )
+    layout.children[1] = create_figure(
+        app_data["x_data"],
+        app_data["y_data"],
+        app_data["wdg_dict"],
+        app_data["app_vars"],
+    )
 
 
 def export_data():
