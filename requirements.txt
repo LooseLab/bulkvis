@@ -3,3 +3,4 @@ h5py~=2.10.0
 pandas~=1.0.5
 tornado~=6.0.4
 tqdm~=4.46.1
+readpaf

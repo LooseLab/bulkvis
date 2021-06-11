@@ -26,9 +26,11 @@ def main():
     parser.add_argument("--version", action="version", version=version)
     subparsers = parser.add_subparsers(dest="command", help="Sub-commands")
 
-    for module in ["fuse", "merge", "serve", "cite"]:
+    for module in ["fuse", "merge", "serve", "mappings", "cite"]:
         _module = importlib.import_module(f"bulkvis.{module}")
-        _parser = subparsers.add_parser(module, help=_module._help)
+        _parser = subparsers.add_parser(
+            module, description=_module._help, help=_module._help
+        )
         for *flags, opts in _module._cli:
             _parser.add_argument(*flags, **opts)
         _parser.set_defaults(func=run_command)
