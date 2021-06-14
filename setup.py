@@ -10,6 +10,7 @@ install_requires = [
     "pandas~=1.0.5",
     "tornado~=6.0.4",
     "tqdm~=4.46.1",
+    "readpaf",
 ]
 
 setup(
@@ -18,8 +19,8 @@ setup(
     author="Alexander Payne",
     install_requires=install_requires,
     entry_points={
-        'console_scripts': [
-            'bulkvis=bulkvis.bulkvis:main',
+        "console_scripts": [
+            "bulkvis=bulkvis.bulkvis:main",
         ],
     },
     packages=["bulkvis"],
