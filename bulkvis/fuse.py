@@ -89,7 +89,6 @@ def run(parser, args):
             "run_id",
             "read_id",
             "sequence_length_template",
-            "filename",
         ],
     )
     # Open minimap2 paf files into a single pd.DataFrame
