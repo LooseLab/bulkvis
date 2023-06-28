@@ -5,9 +5,8 @@ An app written in Python3 using [Bokeh][1] to visualise raw squiggle data from O
 
 Quickstart
 ==========
-We require python 3.6 or newer.
 
-Using `conda` with this environment setup:
+Our preferred installation method uses `conda` with this environment setup:
 ```yaml
 name: bulkvis
 channels:
@@ -15,13 +14,27 @@ channels:
   - conda-forge
   - defaults
 dependencies:
-  - python=3.7
+  - python=3.11
   - pip
   - pip:
     - git+https://github.com/LooseLab/bulkvis.git@2.0
 ```
 
-or with another python source:
+Either copy the YAML above into a file or:
+
+```console
+curl -O https://raw.githubusercontent.com/LooseLab/bulkvis/2.0/env.yml
+conda env create -f env.yml
+```
+
+Then bulkvis can be started using:
+```console
+conda activate bulkvis
+bulkvis serve <BULK_FILE_DIRECTORY> --show
+```
+
+<details>
+<summary>or with another python source</summary>
 
 ```bash
 # Make a python3 virtual environment
@@ -36,6 +49,7 @@ pip install git+https://github.com/LooseLab/bulkvis.git@2.0
 # Start bokeh server
 bulkvis serve <BULK_FILE_DIRECTORY> --show
 ```
+</details>
 
 Other install requires:
 ===
