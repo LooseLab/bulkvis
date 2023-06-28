@@ -31,7 +31,7 @@ Then bulkvis can be started using:
 ```console
 conda activate bulkvis
 bulkvis serve <BULK_FILE_DIRECTORY> --show
-````
+```
 
 <details>
 <summary>or with another python source</summary>
