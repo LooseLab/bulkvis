@@ -23,7 +23,7 @@ setup(
             "bulkvis=bulkvis.bulkvis:main",
         ],
     },
-    packages=["bulkvis"],
+    packages=["bulkvis", "bulkvis.bulkvis_server"],
     python_requires=">=3.6",
     include_package_data=True,
 )
