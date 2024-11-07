@@ -17,6 +17,7 @@ dependencies:
   - python=3.11
   - pip
   - pip:
+    - numpy==1.26.4
     - git+https://github.com/LooseLab/bulkvis.git@2.0
 ```
 
